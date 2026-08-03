@@ -1,6 +1,0 @@
-services:
-  ctf:
-    build: .
-    ports:
-      - "2222:22"
-    restart: unless-stopped
