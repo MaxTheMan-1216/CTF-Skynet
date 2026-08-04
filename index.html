@@ -129,6 +129,10 @@
     margin-top: 2px;
   }
   .hud-stat .v.signal { color: var(--signal); }
+  @media (max-width: 420px) {
+    header { padding: 16px 16px 12px; gap: 14px; }
+    .hud-stats { gap: 14px; }
+  }
 
   /* ---------- layout ---------- */
   main {
@@ -148,20 +152,19 @@
     border-right: 1px solid var(--panel-edge);
     display: flex;
     align-items: center;
+    container-type: inline-size;
   }
   .map-wrap::-webkit-scrollbar { height: 8px; }
   .map-wrap::-webkit-scrollbar-thumb { background: var(--panel-edge); }
 
   .map {
     position: relative;
-    width: 1000px;
-    max-width: none;
-    height: 480px;
+    width: 100%;
+    max-width: 1100px;
+    min-width: 520px;
+    aspect-ratio: 1000 / 480;
     flex: none;
     margin: auto;
-  }
-  @media (max-width: 1100px) {
-    .map { width: 1000px; }
   }
 
   .map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -187,8 +190,8 @@
 
   .node {
     position: absolute;
-    width: 30px;
-    height: 30px;
+    width: clamp(20px, 4cqw, 30px);
+    height: clamp(20px, 4cqw, 30px);
     transform: translate(-50%, -50%);
     border-radius: 50%;
     border: 2px solid var(--steel-dim);
@@ -220,14 +223,14 @@
     .node.current { animation: none; box-shadow: 0 0 10px 2px var(--signal-glow); }
   }
 
-  .node.core { width: 44px; height: 44px; }
+  .node.core { width: clamp(28px, 5.6cqw, 44px); height: clamp(28px, 5.6cqw, 44px); }
   .node.core .dot { width: 9px; height: 9px; }
 
   .node.bonus {
     border-style: dashed;
     border-color: var(--signal-dim);
-    width: 24px;
-    height: 24px;
+    width: clamp(16px, 3.2cqw, 24px);
+    height: clamp(16px, 3.2cqw, 24px);
     cursor: pointer;
   }
   .node.bonus .dot { background: var(--signal-dim); }
@@ -256,13 +259,97 @@
     transform: translateX(-50%);
     margin-top: 8px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: clamp(8px, 1.6cqw, 10px);
     letter-spacing: 0.06em;
     white-space: nowrap;
     color: var(--steel-dim);
   }
   .node.current ~ .node-label,
   .node.cleared ~ .node-label { color: var(--steel); }
+
+  /* ---------- mobile step-list (replaces the graph under 640px) ---------- */
+  .list-view {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    padding: 20px clamp(16px, 5vw, 28px);
+  }
+  @media (max-width: 640px) {
+    .map-wrap { display: none; }
+    .list-view { display: flex; }
+  }
+
+  .list-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0 0 24px;
+    background: none;
+    border: none;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: default;
+    width: 100%;
+  }
+  .list-item:last-child { padding-bottom: 0; }
+  .list-item.bonus { margin-left: 30px; }
+  .stem {
+    position: absolute;
+    left: 10px;
+    top: 24px;
+    bottom: 0;
+    width: 2px;
+    background: var(--steel-dim);
+  }
+  .list-item.cleared .stem { background: var(--cleared); }
+
+  .list-dot {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--steel-dim);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+  }
+  .list-dot .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--steel-dim); }
+  .list-item.cleared .list-dot { border-color: var(--cleared); }
+  .list-item.cleared .dot { background: var(--cleared); }
+  .list-item.current .list-dot { border-color: var(--signal); box-shadow: 0 0 0 4px var(--signal-glow); }
+  .list-item.current .dot { background: var(--signal); }
+  .list-item.core .list-dot { width: 28px; height: 28px; }
+  .list-item.bonus .list-dot { border-style: dashed; border-color: var(--signal-dim); width: 18px; height: 18px; }
+  .list-item.bonus .dot { background: var(--signal-dim); }
+  .list-item.locked { opacity: 0.6; }
+
+  .list-main { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; min-width: 0; }
+  .list-label {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--phosphor);
+  }
+  .list-status {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--steel-dim);
+  }
+  .list-item.current .list-status { color: var(--signal); }
+  .list-item.cleared .list-status { color: var(--cleared); }
+  .list-item.bonus .list-status { color: var(--signal-dim); }
+
+  button.list-item[data-tap="true"] { cursor: pointer; }
+  button.list-item[data-tap="true"]:hover .list-label,
+  button.list-item[data-tap="true"]:focus-visible .list-label { color: var(--phosphor); }
+  button.list-item[data-tap="true"]:focus-visible { outline: 1px solid var(--signal); outline-offset: 3px; }
+  .list-item.selected .list-label { color: var(--phosphor); text-decoration: underline; text-decoration-color: var(--signal); text-underline-offset: 4px; }
 
   /* ---------- briefing panel ---------- */
   .briefing {
@@ -405,6 +492,8 @@
     </div>
   </div>
 
+  <nav class="list-view" id="list" aria-label="Node progression"></nav>
+
   <section class="briefing" id="briefing" aria-live="polite"></section>
 </main>
 
@@ -438,6 +527,7 @@
   const byId = Object.fromEntries(NODES.map(n => [n.id, n]));
   const routesEl = document.getElementById("routes");
   const nodesEl = document.getElementById("nodes");
+  const listEl = document.getElementById("list");
   const briefingEl = document.getElementById("briefing");
 
   function routeClass(a, b) {
@@ -469,8 +559,8 @@
   NODES.forEach(n => {
     const wrap = document.createElement("div");
     wrap.style.position = "absolute";
-    wrap.style.left = n.x + "px";
-    wrap.style.top = n.y + "px";
+    wrap.style.left = (n.x / 1000 * 100) + "%";
+    wrap.style.top = (n.y / 480 * 100) + "%";
 
     const btn = document.createElement("div");
     btn.className = "node " + n.status + (n.core ? " core" : "") + (n.bonus ? " bonus" : "");
@@ -494,6 +584,38 @@
     wrap.appendChild(label);
     nodesEl.appendChild(wrap);
   });
+
+  function makeListItem(n, showStem) {
+    const tappable = n.status === "current" || n.status === "cleared" || n.status === "bonus";
+    const el = document.createElement(tappable ? "button" : "div");
+    if (tappable) { el.type = "button"; el.dataset.tap = "true"; }
+    el.className = "list-item " + n.status + (n.core ? " core" : "") + (n.bonus ? " bonus" : "");
+    el.dataset.id = n.id;
+    el.innerHTML = (showStem ? '<span class="stem"></span>' : "") +
+      '<span class="list-dot"><span class="dot"></span></span>' +
+      '<span class="list-main">' +
+        '<span class="list-label">' + n.label + '</span>' +
+        '<span class="list-status">' + statusLabel(n.status) + '</span>' +
+      '</span>';
+    if (tappable) {
+      el.addEventListener("click", () => selectNode(n.id));
+    }
+    return el;
+  }
+
+  function buildList() {
+    const mainOrder = NODES.filter(n => !n.bonus);
+    const bonusAfter = {};
+    BONUS_ROUTES.forEach(([from, to]) => {
+      (bonusAfter[from] = bonusAfter[from] || []).push(byId[to]);
+    });
+
+    mainOrder.forEach((n, i) => {
+      listEl.appendChild(makeListItem(n, i < mainOrder.length - 1));
+      (bonusAfter[n.id] || []).forEach(b => listEl.appendChild(makeListItem(b, false)));
+    });
+  }
+  buildList();
 
   function renderBriefing(n) {
     briefingEl.innerHTML = "";
@@ -539,7 +661,7 @@
   }
 
   function selectNode(id) {
-    document.querySelectorAll(".node").forEach(el => el.classList.toggle("selected", el.dataset.id === id));
+    document.querySelectorAll(".node, .list-item").forEach(el => el.classList.toggle("selected", el.dataset.id === id));
     renderBriefing(byId[id]);
   }
 
