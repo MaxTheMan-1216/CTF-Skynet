@@ -13,15 +13,25 @@
     text-align: center;
   }
 
+  /* faint signal-hiccup: a ~200ms jitter+flicker burst near the start of every
+     10s loop, then flat for the rest — only runs once boot has fired */
+  @media (prefers-reduced-motion: no-preference) {
+    .gate-screen.play { animation: glitch 10.6s ease infinite; }
+  }
+  @keyframes glitch {
+    0%, 100% { transform: translate(0, 0); filter: brightness(1) contrast(1); }
+    0.5% { transform: translate(-2px, 1px); filter: brightness(1.15) contrast(1.25); }
+    1% { transform: translate(2px, -1px); filter: brightness(0.9) contrast(1.15); }
+    1.5% { transform: translate(-1px, 0); filter: brightness(1.08) contrast(1.15); }
+    2% { transform: translate(0, 0); filter: brightness(1) contrast(1); }
+  }
+
   /* ---------- emblem: three separate clip-path shapes with real gaps between them ---------- */
   .emblem {
     position: relative;
     width: clamp(200px, 42vw, 380px);
     aspect-ratio: 3 / 2;
     clip-path: inset(0 0 100% 0);
-    animation:
-      emblem-reveal 1.1s cubic-bezier(.2, .7, .3, 1) forwards,
-      emblem-glow 3.6s ease-in-out 2.2s infinite;
   }
   .tri {
     position: absolute;
@@ -31,15 +41,15 @@
   }
   /* all three shapes are plotted in the same 0-100% box, so the gaps between
      them are just the space no polygon covers, not a shape drawn on top */
-  .tri-left    { clip-path: polygon(30% 36%, 0% 97%, 45% 97%); }
-  .tri-right   { clip-path: polygon(70% 36%, 100% 97%, 55% 97%); }
-  .tri-diamond { clip-path: polygon(50% 4%, 66% 36%, 50% 66%, 34% 36%); }
+  .tri-left    { clip-path: polygon(32.76% 39.93%, 47.36% 66.97%, 47.36% 93.65%, 5.19% 93.65%); }
+  .tri-right   { clip-path: polygon(65.99% 39.93%, 51.39% 66.97%, 51.39% 93.65%, 93.56% 93.65%); }
+  .tri-diamond { clip-path: polygon(49.47% 9.62%, 63.02% 34.12%, 49.47% 60.80%, 35.93% 34.12%); }
   @keyframes emblem-reveal {
     to { clip-path: inset(0 0 0% 0); }
   }
   @keyframes emblem-glow {
     0%, 100% { filter: drop-shadow(0 0 0 transparent); }
-    50% { filter: drop-shadow(0 0 18px var(--signal-glow)); }
+    50% { filter: drop-shadow(0 0 26px var(--signal-glow)); }
   }
 
   /* ---------- staged type reveal ---------- */
@@ -52,7 +62,6 @@
     letter-spacing: 0.05em;
     color: var(--phosphor);
     margin: 0.35em 0 0;
-    animation: flicker-in 0.5s steps(6, end) 1.05s forwards;
   }
   .caption {
     font-family: var(--font-mono);
@@ -61,7 +70,6 @@
     text-transform: uppercase;
     color: var(--signal-dim);
     margin: 0.7em 0 0;
-    animation: fade-up 0.5s ease-out 1.5s forwards;
   }
   @keyframes flicker-in {
     0%, 19%, 21%, 23% { opacity: 0; }
@@ -72,16 +80,44 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
+  /* boot sequence is held until first interaction (see JS), then this block
+     drives emblem/wordmark/caption/gate in — kept out of the reduced-motion
+     path entirely so those users never get it, regardless of the .play class */
+  @media (prefers-reduced-motion: no-preference) {
+    .gate-screen.play .emblem {
+      animation:
+        emblem-reveal 1.38s cubic-bezier(.2, .7, .3, 1) forwards,
+        emblem-glow 4.5s ease-in-out 2.75s infinite;
+    }
+    .gate-screen.play .wordmark { animation: flicker-in 0.63s steps(6, end) 1.31s forwards; }
+    .gate-screen.play .caption { animation: fade-up 0.63s ease-out 1.88s forwards; }
+    .gate-screen.play .gate { animation: fade-up 0.63s ease-out 2.31s forwards; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .emblem { animation: none; clip-path: inset(0 0 0% 0); }
-    .wordmark, .caption, .gate { animation: none; opacity: 1; }
+    .emblem { clip-path: inset(0 0 0% 0); }
+    .wordmark, .caption, .gate { opacity: 1; }
+    .boot-prompt { display: none; animation: none; }
   }
 
   /* ---------- prompt ---------- */
-  .gate {
+  .gate-slot {
+    display: grid;
     margin-top: clamp(28px, 6vw, 48px);
-    animation: fade-up 0.5s ease-out 1.85s forwards;
   }
+  .gate-slot > * { grid-area: 1 / 1; }
+  .gate { margin-top: 0; }
+  .boot-prompt {
+    align-self: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--steel-dim);
+    animation: blink 1.6s steps(2, jump-none) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  .gate-screen.play .boot-prompt { display: none; }
   .gate-label {
     display: block;
     font-family: var(--font-mono);
@@ -138,15 +174,20 @@
   <h1 class="wordmark">SKYNET</h1>
   <p class="caption">Cyberdyne Systems Corporation</p>
 
-  <form id="gate" class="gate" autocomplete="off">
-    <label class="gate-label" for="gate-input">Authorization required</label>
-    <div class="gate-row">
-      <span class="gate-caret" aria-hidden="true">&gt;</span>
-      <input id="gate-input" type="text" spellcheck="false" autocomplete="off" autofocus aria-describedby="gate-msg" />
-    </div>
-    <p id="gate-msg" class="gate-msg" role="status" aria-live="polite">&nbsp;</p>
-  </form>
+  <div class="gate-slot">
+    <p class="boot-prompt">Press any key to initialize</p>
+    <form id="gate" class="gate" autocomplete="off">
+      <label class="gate-label" for="gate-input">Authorization required</label>
+      <div class="gate-row">
+        <span class="gate-caret" aria-hidden="true">&gt;</span>
+        <input id="gate-input" type="text" spellcheck="false" autocomplete="off" autofocus aria-describedby="gate-msg" />
+      </div>
+      <p id="gate-msg" class="gate-msg" role="status" aria-live="polite">&nbsp;</p>
+    </form>
+  </div>
 </main>
+
+<audio id="gate-audio" src="audio/Landing-Intro.mp3" loop preload="auto"></audio>
 
 <script>
   // Extension point: swap this for the real puzzle answer once one is designed.
@@ -156,6 +197,21 @@
   const input = document.getElementById("gate-input");
   const row = gate.querySelector(".gate-row");
   const msg = document.getElementById("gate-msg");
+
+  // Boot sequence + audio are both held until the first interaction, then
+  // fired together — audio can't autoplay before that anyway (browser
+  // policy), so the animation waits to match it rather than running ahead.
+  const gateScreen = document.querySelector(".gate-screen");
+  const gateAudio = document.getElementById("gate-audio");
+  let booted = false;
+  function beginBoot() {
+    if (booted) return;
+    booted = true;
+    gateScreen.classList.add("play");
+    gateAudio.play().catch(() => {});
+  }
+  document.addEventListener("click", beginBoot, { once: true });
+  document.addEventListener("keydown", beginBoot, { once: true });
 
   gate.addEventListener("submit", e => {
     e.preventDefault();
