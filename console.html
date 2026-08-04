@@ -1,0 +1,640 @@
+<title>Skynet Infiltration Console</title>
+<link rel="stylesheet" href="styles/theme.css">
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    animation: boot 0.6s ease-out;
+  }
+  @keyframes boot {
+    0% { filter: brightness(2.4) contrast(1.4); opacity: 0; }
+    12% { opacity: 1; }
+    100% { filter: brightness(1) contrast(1); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body { animation: none; }
+  }
+
+  /* ambient scanline texture over the whole console */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.018) 0px,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: overlay;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 22px clamp(16px, 4vw, 40px) 16px;
+    border-bottom: 1px solid var(--panel-edge);
+    flex-wrap: wrap;
+  }
+  .wordmark {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: clamp(22px, 3.4vw, 34px);
+    letter-spacing: 0.08em;
+    color: var(--phosphor);
+    line-height: 1;
+  }
+  .wordmark span { color: var(--signal); }
+  .subline {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--steel-dim);
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+  .hud-stats {
+    display: flex;
+    gap: 28px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .hud-stat { text-align: right; }
+  .hud-stat .k {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--steel-dim);
+    text-transform: uppercase;
+  }
+  .hud-stat .v {
+    font-size: 16px;
+    color: var(--phosphor);
+    margin-top: 2px;
+  }
+  .hud-stat .v.signal { color: var(--signal); }
+  @media (max-width: 420px) {
+    header { padding: 16px 16px 12px; gap: 14px; }
+    .hud-stats { gap: 14px; }
+  }
+
+  /* ---------- layout ---------- */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr min(340px, 32vw);
+    min-height: 0;
+  }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .map-wrap {
+    position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 1px solid var(--panel-edge);
+    display: flex;
+    align-items: center;
+    container-type: inline-size;
+  }
+  .map-wrap::-webkit-scrollbar { height: 8px; }
+  .map-wrap::-webkit-scrollbar-thumb { background: var(--panel-edge); }
+
+  .map {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    min-width: 520px;
+    aspect-ratio: 1000 / 480;
+    flex: none;
+    margin: auto;
+  }
+
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .route { stroke: var(--steel-dim); stroke-width: 2; fill: none; }
+  .route.cleared { stroke: var(--cleared); }
+  .route.bonus { stroke: var(--signal-dim); stroke-dasharray: 3 5; }
+
+  .sweep {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 140px;
+    background: linear-gradient(90deg, transparent, rgba(255,49,49,0.06), transparent);
+    animation: sweep 7s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes sweep {
+    0% { transform: translateX(-140px); }
+    100% { transform: translateX(1000px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sweep { display: none; }
+  }
+
+  .node {
+    position: absolute;
+    width: clamp(20px, 4cqw, 30px);
+    height: clamp(20px, 4cqw, 30px);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px solid var(--steel-dim);
+    background: var(--panel);
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .node .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--steel-dim); }
+
+  .node.locked { opacity: 0.55; }
+
+  .node.cleared { border-color: var(--cleared); }
+  .node.cleared .dot { background: var(--cleared); }
+
+  .node.current {
+    border-color: var(--signal);
+    cursor: pointer;
+    box-shadow: 0 0 0 0 var(--signal-glow);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  .node.current .dot { background: var(--signal); }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--signal-glow); }
+    50% { box-shadow: 0 0 14px 5px var(--signal-glow); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .node.current { animation: none; box-shadow: 0 0 10px 2px var(--signal-glow); }
+  }
+
+  .node.core { width: clamp(28px, 5.6cqw, 44px); height: clamp(28px, 5.6cqw, 44px); }
+  .node.core .dot { width: 9px; height: 9px; }
+
+  .node.bonus {
+    border-style: dashed;
+    border-color: var(--signal-dim);
+    width: clamp(16px, 3.2cqw, 24px);
+    height: clamp(16px, 3.2cqw, 24px);
+    cursor: pointer;
+  }
+  .node.bonus .dot { background: var(--signal-dim); }
+
+  .node[tabindex]:hover, .node[tabindex]:focus-visible {
+    outline: none;
+  }
+  .node[tabindex]:hover::before, .node[tabindex]:focus-visible::before,
+  .node.selected::before {
+    content: "";
+    position: absolute;
+    inset: -9px;
+    border: 1px solid var(--signal);
+    clip-path: polygon(
+      0 0, 22% 0, 22% 2px, 2px 2px, 2px 22%, 0 22%,
+      0 78%, 2px 78%, 2px 100%, 22% 100%, 22% calc(100% - 2px), 0 calc(100% - 2px),
+      100% 100%, 78% 100%, 78% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 100% 100%,
+      100% 0, 78% 0, 78% 2px, calc(100% - 2px) 2px, calc(100% - 2px) 22%, 100% 22%
+    );
+  }
+
+  .node-label {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: clamp(8px, 1.6cqw, 10px);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    color: var(--steel-dim);
+  }
+  .node.current ~ .node-label,
+  .node.cleared ~ .node-label { color: var(--steel); }
+
+  /* ---------- mobile step-list (replaces the graph under 640px) ---------- */
+  .list-view {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    padding: 20px clamp(16px, 5vw, 28px);
+  }
+  @media (max-width: 640px) {
+    .map-wrap { display: none; }
+    .list-view { display: flex; }
+  }
+
+  .list-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0 0 24px;
+    background: none;
+    border: none;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: default;
+    width: 100%;
+  }
+  .list-item:last-child { padding-bottom: 0; }
+  .list-item.bonus { margin-left: 30px; }
+  .stem {
+    position: absolute;
+    left: 10px;
+    top: 24px;
+    bottom: 0;
+    width: 2px;
+    background: var(--steel-dim);
+  }
+  .list-item.cleared .stem { background: var(--cleared); }
+
+  .list-dot {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--steel-dim);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+  }
+  .list-dot .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--steel-dim); }
+  .list-item.cleared .list-dot { border-color: var(--cleared); }
+  .list-item.cleared .dot { background: var(--cleared); }
+  .list-item.current .list-dot { border-color: var(--signal); box-shadow: 0 0 0 4px var(--signal-glow); }
+  .list-item.current .dot { background: var(--signal); }
+  .list-item.core .list-dot { width: 28px; height: 28px; }
+  .list-item.bonus .list-dot { border-style: dashed; border-color: var(--signal-dim); width: 18px; height: 18px; }
+  .list-item.bonus .dot { background: var(--signal-dim); }
+  .list-item.locked { opacity: 0.6; }
+
+  .list-main { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; min-width: 0; }
+  .list-label {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--phosphor);
+  }
+  .list-status {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--steel-dim);
+  }
+  .list-item.current .list-status { color: var(--signal); }
+  .list-item.cleared .list-status { color: var(--cleared); }
+  .list-item.bonus .list-status { color: var(--signal-dim); }
+
+  button.list-item[data-tap="true"] { cursor: pointer; }
+  button.list-item[data-tap="true"]:hover .list-label,
+  button.list-item[data-tap="true"]:focus-visible .list-label { color: var(--phosphor); }
+  button.list-item[data-tap="true"]:focus-visible { outline: 1px solid var(--signal); outline-offset: 3px; }
+  .list-item.selected .list-label { color: var(--phosphor); text-decoration: underline; text-decoration-color: var(--signal); text-underline-offset: 4px; }
+
+  /* ---------- briefing panel ---------- */
+  .briefing {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .briefing-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .briefing-id {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--phosphor);
+    letter-spacing: 0.03em;
+  }
+  .status-pill {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+  .status-pill.locked { color: var(--steel-dim); }
+  .status-pill.cleared { color: var(--cleared); }
+  .status-pill.current { color: var(--signal); }
+  .status-pill.bonus { color: var(--signal-dim); }
+
+  .briefing-body {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--steel);
+  }
+  .briefing-body p { margin: 0 0 10px; }
+  .briefing-note {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--steel-dim);
+    border-left: 2px solid var(--panel-edge);
+    padding-left: 10px;
+    line-height: 1.6;
+  }
+
+  .flag-demo {
+    margin-top: 4px;
+    padding: 14px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 3px;
+  }
+  .flag-demo .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--steel-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .flag-row { display: flex; gap: 8px; }
+  .flag-row input {
+    flex: 1;
+    min-width: 0;
+    background: var(--void);
+    border: 1px solid var(--panel-edge);
+    color: var(--phosphor);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 9px 10px;
+    border-radius: 2px;
+  }
+  .flag-row input:focus-visible {
+    outline: 1px solid var(--signal);
+    outline-offset: 1px;
+  }
+  .flag-row button {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    background: var(--signal-dim);
+    color: var(--phosphor);
+    border: 1px solid var(--signal);
+    border-radius: 2px;
+    padding: 0 16px;
+    cursor: pointer;
+  }
+  .flag-row button:hover { background: var(--signal); color: var(--void); }
+  .flag-row button:focus-visible { outline: 2px solid var(--phosphor); outline-offset: 2px; }
+  .flag-msg {
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--steel-dim);
+    min-height: 14px;
+  }
+
+  footer {
+    padding: 10px clamp(16px, 4vw, 40px);
+    border-top: 1px solid var(--panel-edge);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--steel-dim);
+    letter-spacing: 0.04em;
+  }
+  footer .marker { color: var(--signal-dim); }
+</style>
+
+<header>
+  <div>
+    <div class="wordmark">SKYNET<span>_</span>CONSOLE</div>
+    <div class="subline">Global Digital Defense Network — Infiltration Interface</div>
+  </div>
+  <div class="hud-stats">
+    <div class="hud-stat">
+      <div class="k">Nodes Cleared</div>
+      <div class="v" id="stat-cleared">— / —</div>
+    </div>
+    <div class="hud-stat">
+      <div class="k">Session T+</div>
+      <div class="v" id="stat-elapsed">00:00:00</div>
+    </div>
+    <div class="hud-stat">
+      <div class="k">Sys.Time</div>
+      <div class="v signal" id="stat-clock">--:--:--</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="map-wrap">
+    <div class="map" id="map">
+      <svg viewBox="0 0 1000 480" preserveAspectRatio="none">
+        <g id="routes"></g>
+      </svg>
+      <div class="sweep" style="left:0"></div>
+      <div id="nodes"></div>
+    </div>
+  </div>
+
+  <nav class="list-view" id="list" aria-label="Node progression"></nav>
+
+  <section class="briefing" id="briefing" aria-live="polite"></section>
+</main>
+
+<footer><span class="marker">//</span> SCAFFOLD BUILD — node count, routes and puzzle content are all placeholders pending design</footer>
+
+<script>
+  const NODES = [
+    { id: "n1", x: 60,  y: 300, status: "cleared", label: "NODE_01", title: "NODE_01",
+      body: "Segment neutralized. Puzzle type and write-up go here once the challenge is designed." },
+    { id: "n2", x: 210, y: 170, status: "cleared", label: "NODE_02", title: "NODE_02",
+      body: "Segment neutralized. Puzzle type and write-up go here once the challenge is designed." },
+    { id: "n3", x: 360, y: 320, status: "current", label: "NODE_03", title: "NODE_03",
+      body: "Encryption on this segment is live. This is where a real challenge — and its flag check — will sit; the box below is a placeholder for that interaction, not a working validator yet." },
+    { id: "n4", x: 500, y: 160, status: "locked", label: "NODE_04", title: "NODE_04",
+      body: "Route not yet established. Clearing NODE_03 should be what unlocks this segment." },
+    { id: "n5", x: 640, y: 310, status: "locked", label: "NODE_05", title: "NODE_05",
+      body: "Route not yet established." },
+    { id: "n6", x: 780, y: 170, status: "locked", label: "NODE_06", title: "NODE_06",
+      body: "Route not yet established." },
+    { id: "n7", x: 930, y: 300, status: "locked", label: "CORE", title: "CORE — MAINFRAME", core: true,
+      body: "The network's root process. Intended as the final challenge — clearing every prior node should be what exposes it." },
+    { id: "b1", x: 270, y: 430, status: "bonus", label: "??", title: "UNKNOWN SIGNAL", bonus: true,
+      body: "An anomalous branch off NODE_02. Reserved for an optional / bonus objective, if one gets designed." }
+  ];
+
+  const ROUTES = [
+    ["n1","n2"], ["n2","n3"], ["n3","n4"], ["n4","n5"], ["n5","n6"], ["n6","n7"]
+  ];
+  const BONUS_ROUTES = [["n2","b1"]];
+
+  const byId = Object.fromEntries(NODES.map(n => [n.id, n]));
+  const routesEl = document.getElementById("routes");
+  const nodesEl = document.getElementById("nodes");
+  const listEl = document.getElementById("list");
+  const briefingEl = document.getElementById("briefing");
+
+  function routeClass(a, b) {
+    return (byId[a].status === "cleared" && (byId[b].status === "cleared" || byId[b].status === "current"))
+      ? "route cleared" : "route";
+  }
+
+  ROUTES.forEach(([a, b]) => {
+    const A = byId[a], B = byId[b];
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    el.setAttribute("x1", A.x); el.setAttribute("y1", A.y);
+    el.setAttribute("x2", B.x); el.setAttribute("y2", B.y);
+    el.setAttribute("class", routeClass(a, b));
+    routesEl.appendChild(el);
+  });
+  BONUS_ROUTES.forEach(([a, b]) => {
+    const A = byId[a], B = byId[b];
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    el.setAttribute("x1", A.x); el.setAttribute("y1", A.y);
+    el.setAttribute("x2", B.x); el.setAttribute("y2", B.y);
+    el.setAttribute("class", "route bonus");
+    routesEl.appendChild(el);
+  });
+
+  function statusLabel(s) {
+    return { cleared: "Cleared", current: "Active — Awaiting Input", locked: "Locked", bonus: "Hidden" }[s];
+  }
+
+  NODES.forEach(n => {
+    const wrap = document.createElement("div");
+    wrap.style.position = "absolute";
+    wrap.style.left = (n.x / 1000 * 100) + "%";
+    wrap.style.top = (n.y / 480 * 100) + "%";
+
+    const btn = document.createElement("div");
+    btn.className = "node " + n.status + (n.core ? " core" : "") + (n.bonus ? " bonus" : "");
+    btn.style.left = "0px";
+    btn.style.top = "0px";
+    btn.innerHTML = '<span class="dot"></span>';
+    if (n.status === "current" || n.status === "cleared" || n.status === "bonus") {
+      btn.tabIndex = 0;
+      btn.setAttribute("role", "button");
+      btn.setAttribute("aria-label", n.title + " — " + statusLabel(n.status));
+      btn.addEventListener("click", () => selectNode(n.id));
+      btn.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectNode(n.id); } });
+    }
+    btn.dataset.id = n.id;
+
+    const label = document.createElement("div");
+    label.className = "node-label";
+    label.textContent = n.label;
+
+    wrap.appendChild(btn);
+    wrap.appendChild(label);
+    nodesEl.appendChild(wrap);
+  });
+
+  function makeListItem(n, showStem) {
+    const tappable = n.status === "current" || n.status === "cleared" || n.status === "bonus";
+    const el = document.createElement(tappable ? "button" : "div");
+    if (tappable) { el.type = "button"; el.dataset.tap = "true"; }
+    el.className = "list-item " + n.status + (n.core ? " core" : "") + (n.bonus ? " bonus" : "");
+    el.dataset.id = n.id;
+    el.innerHTML = (showStem ? '<span class="stem"></span>' : "") +
+      '<span class="list-dot"><span class="dot"></span></span>' +
+      '<span class="list-main">' +
+        '<span class="list-label">' + n.label + '</span>' +
+        '<span class="list-status">' + statusLabel(n.status) + '</span>' +
+      '</span>';
+    if (tappable) {
+      el.addEventListener("click", () => selectNode(n.id));
+    }
+    return el;
+  }
+
+  function buildList() {
+    const mainOrder = NODES.filter(n => !n.bonus);
+    const bonusAfter = {};
+    BONUS_ROUTES.forEach(([from, to]) => {
+      (bonusAfter[from] = bonusAfter[from] || []).push(byId[to]);
+    });
+
+    mainOrder.forEach((n, i) => {
+      listEl.appendChild(makeListItem(n, i < mainOrder.length - 1));
+      (bonusAfter[n.id] || []).forEach(b => listEl.appendChild(makeListItem(b, false)));
+    });
+  }
+  buildList();
+
+  function renderBriefing(n) {
+    briefingEl.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "briefing-head";
+    head.innerHTML = `<div class="briefing-id">${n.title}</div>
+      <div class="status-pill ${n.status}">${statusLabel(n.status)}</div>`;
+
+    const body = document.createElement("div");
+    body.className = "briefing-body";
+    body.innerHTML = `<p>${n.body}</p>`;
+
+    briefingEl.appendChild(head);
+    briefingEl.appendChild(body);
+
+    if (n.status === "locked") {
+      const note = document.createElement("div");
+      note.className = "briefing-note";
+      note.textContent = "PUZZLE BRIEFING: not yet drafted.";
+      briefingEl.appendChild(note);
+    }
+
+    if (n.status === "current") {
+      const demo = document.createElement("div");
+      demo.className = "flag-demo";
+      demo.innerHTML = `
+        <div class="label">Flag Submission — UI preview only</div>
+        <div class="flag-row">
+          <input type="text" placeholder="flag{...}" aria-label="Flag input" autocomplete="off" spellcheck="false" />
+          <button type="button">Submit</button>
+        </div>
+        <div class="flag-msg"></div>`;
+      const input = demo.querySelector("input");
+      const msg = demo.querySelector(".flag-msg");
+      demo.querySelector("button").addEventListener("click", () => {
+        msg.textContent = input.value.trim()
+          ? "// validation endpoint not wired yet — nothing checked."
+          : "// enter something to see this state.";
+      });
+      briefingEl.appendChild(demo);
+    }
+  }
+
+  function selectNode(id) {
+    document.querySelectorAll(".node, .list-item").forEach(el => el.classList.toggle("selected", el.dataset.id === id));
+    renderBriefing(byId[id]);
+  }
+
+  const clearedCount = NODES.filter(n => n.status === "cleared").length;
+  const totalMain = NODES.filter(n => !n.bonus).length;
+  document.getElementById("stat-cleared").textContent = clearedCount + " / " + totalMain;
+
+  const startNode = NODES.find(n => n.status === "current") || NODES[0];
+  selectNode(startNode.id);
+
+  function tick() {
+    const now = new Date();
+    document.getElementById("stat-clock").textContent = now.toTimeString().slice(0, 8);
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  const bootAt = Date.now();
+  setInterval(() => {
+    const s = Math.floor((Date.now() - bootAt) / 1000);
+    const h = String(Math.floor(s / 3600)).padStart(2, "0");
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+    const sec = String(s % 60).padStart(2, "0");
+    document.getElementById("stat-elapsed").textContent = `${h}:${m}:${sec}`;
+  }, 1000);
+</script>
