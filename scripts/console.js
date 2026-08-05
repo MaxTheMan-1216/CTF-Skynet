@@ -1,6 +1,16 @@
-  // x/y are ball centers in the skull artwork's 1600x1557 viewBox; each node's
-  // visual is the matching #ball-<id> group inside the inline SVG.
-  const MAP_W = 1600, MAP_H = 1557;
+  // x/y are ball centers in the skull artwork's raw 1600x1557 coordinate
+  // space; each node's visual is the matching #ball-<id> group inside the
+  // inline SVG. The artwork's actual drawn geometry only fills a fraction of
+  // that raw space (content bounding box was x:[117,1595] y:[57,1500] — real
+  // dead space on every side, worst on the left), which is why it read both
+  // off-center and too small inside .map. #skull-art's viewBox is cropped
+  // down to that content box (+20px padding) rather than the full raw
+  // canvas, in console.html — no path or ball coordinate moves, only the
+  // visible *window* onto them shrinks. VIEW_X/VIEW_Y/MAP_W/MAP_H mirror that
+  // same window here, since the invisible hotspot overlays are positioned as
+  // % of .map (not inside the SVG) and have to track it independently.
+  const VIEW_X = 97, VIEW_Y = 37;
+  const MAP_W = 1518, MAP_H = 1483;
   const NODES = [
     { id: "n1", x: 1401, y: 229, status: "cleared", label: "NODE_01", title: "NODE_01",
       body: "Segment neutralized. Puzzle type and write-up go here once the challenge is designed." },
@@ -40,8 +50,8 @@
   NODES.forEach((n, i) => {
     const wrap = document.createElement("div");
     wrap.style.position = "absolute";
-    wrap.style.left = (n.x / MAP_W * 100) + "%";
-    wrap.style.top = (n.y / MAP_H * 100) + "%";
+    wrap.style.left = ((n.x - VIEW_X) / MAP_W * 100) + "%";
+    wrap.style.top = ((n.y - VIEW_Y) / MAP_H * 100) + "%";
     wrap.style.setProperty("--i", i);
 
     const btn = document.createElement("div");
@@ -199,9 +209,16 @@
   // earlier, so it's caught within the same synchronous event dispatch.
   const mainEl = document.querySelector("main");
   let initialized = false;
-  function initConsole() {
+  function initConsole(e) {
     if (initialized) return;
     initialized = true;
+    // Space/arrow keys/etc all have native scroll actions (Space = page
+    // down); left un-prevented this fired invisibly for years because the
+    // page was pinned to a fixed 100vh with clipped overflow, so there was
+    // nowhere to scroll to. Fixing that clipping (see the 760px map rules)
+    // finally made the browser's default action visible as an unwanted
+    // jump-scroll right as the reveal starts — preventDefault stops it.
+    if (e) e.preventDefault();
     mainEl.classList.add("play");
     if (!userToggled) audioEl.play().catch(() => {});
   }

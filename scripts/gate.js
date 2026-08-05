@@ -38,15 +38,27 @@
   });
 
   let booted = false;
-  function beginBoot() {
+  function beginBoot(e) {
     if (booted) return;
     booted = true;
+    // Space's native action is page-down scroll — prevent it so the "press
+    // any key" boot trigger doesn't also jump-scroll the page (same fix as
+    // console.js's initConsole, see there for the fuller story).
+    if (e) e.preventDefault();
     gateScreen.classList.add("play");
     headerEl.classList.add("play");
     if (!userToggled) gateAudio.play().catch(() => {});
   }
   document.addEventListener("click", beginBoot, { once: true });
   document.addEventListener("keydown", beginBoot, { once: true });
+
+  // Plays once on a correct answer; routing is held until it's actually
+  // finished (the "ended" event), not a guessed setTimeout, so the clip
+  // never gets cut off. play().catch() and the setTimeout below are both
+  // fallbacks that route anyway if playback fails or silently stalls —
+  // "routed" makes sure only the first of the three ever actually navigates.
+  const accessAudio = document.getElementById("access-audio");
+  accessAudio.volume = 0.1;
 
   gate.addEventListener("submit", e => {
     e.preventDefault();
@@ -57,7 +69,18 @@
       row.classList.add("ok");
       msg.classList.add("ok");
       msg.textContent = "ACCESS GRANTED — ROUTING TO NETWORK";
-      setTimeout(() => { window.location.href = "console.html"; }, 700);
+      input.disabled = true;
+      gateAudio.pause(); // let the access chime play clean, not layered under the ambient loop
+
+      let routed = false;
+      function route() {
+        if (routed) return;
+        routed = true;
+        window.location.href = "console.html";
+      }
+      accessAudio.addEventListener("ended", route, { once: true });
+      accessAudio.play().catch(route);
+      setTimeout(route, 2500); // clip is ~1.9s; safety net in case "ended" never fires
     } else {
       void row.offsetWidth; // restart the shake animation on back-to-back wrong guesses
       row.classList.add("shake");

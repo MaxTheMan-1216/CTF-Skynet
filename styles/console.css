@@ -93,7 +93,19 @@
     min-height: 0;
   }
   @media (max-width: 760px) {
-    main { grid-template-columns: 1fr; }
+    /* Below this width main stacks to one column (map, then briefing/list,
+       one under the other). main's flex:1 + min-height:0 above are what
+       make the two-column desktop layout share exactly the viewport's
+       height — correct there, but in the stacked layout that forces
+       .map-wrap's row shorter than .map's own aspect-ratio height, and
+       .map-wrap's overflow-y:hidden was silently cropping the skull's top
+       and bottom to fit. flex:none + min-height:auto let main (and so the
+       whole page) grow past 100vh and scroll normally instead, so nothing
+       needs to be clipped. The .map-wrap/.map overrides for this same
+       breakpoint live further down, right after their base rules — same
+       specificity as the base rules, so they have to come after in source
+       order or the base rules win regardless of the media query. */
+    main { grid-template-columns: 1fr; flex: none; min-height: auto; }
   }
 
   /* ---------- initialize gate: nodes/list stay hidden and audio stays
@@ -133,8 +145,8 @@
     .list-item { opacity: 0; }
     main.play #nodes > div {
       animation: node-in 0.4s cubic-bezier(.2, .7, .3, 1) both;
-      /* held back until the skull draw-on (~2.3s) has finished */
-      animation-delay: calc(2.4s + var(--i, 0) * 90ms);
+      /* held back until the skull draw-on (~4.5s) has finished */
+      animation-delay: calc(4.5s + var(--i, 0) * 90ms);
     }
     main.play .list-item {
       animation: list-in 0.35s ease-out both;
@@ -168,63 +180,155 @@
     /* width-driven so it always resolves (the grid row has no definite
        height); the vh cap keeps the near-square art from overflowing vertically */
     max-width: min(78vh, 760px);
-    aspect-ratio: 1600 / 1557;
+    /* must match #skull-art's viewBox aspect ratio exactly (console.html) —
+       any mismatch here letterboxes the SVG inside its own box via
+       preserveAspectRatio's default xMidYMid-meet behavior, adding back
+       the same kind of dead margin this box was tightened to remove */
+    aspect-ratio: 1518 / 1483;
     flex: none;
     margin: auto;
+  }
+
+  /* faint glitch, scoped to just the skull + nodes: a low-amplitude tear
+     burst on .map itself (not #skull-art — that already owns an animated
+     filter for the breathing glow, and a second animation on the same
+     element/property would just override it rather than combine). .map's
+     only real content is the skull SVG, so shaking/ghosting the box reads
+     identically to targeting the artwork directly, without the collision —
+     and it can't bleed into the header/briefing/list since those live
+     outside .map entirely. Same jagged-steps + drop-shadow-ghost language as
+     the gate page's glitch, in the fire palette instead of --signal, and
+     tuned down (smaller offsets, lower opacity) per "faint and subtle". */
+  @media (prefers-reduced-motion: no-preference) {
+    main.play .map { animation: skull-glitch 15s steps(1, jump-end) 8s infinite; }
+    main.play .map::after { animation: skull-glitch-roll 15s steps(1, jump-end) 8s infinite; }
+  }
+  .map::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(244, 242, 236, 0.03) 46%,
+      rgba(255, 58, 26, 0.08) 50%,
+      rgba(244, 242, 236, 0.03) 54%,
+      transparent 100%);
+    background-size: 100% 260%;
+    background-repeat: no-repeat;
+  }
+  @keyframes skull-glitch-roll {
+    0%, 100% { opacity: 0; background-position: 0 -30%; }
+    0.4% { opacity: 0.5; background-position: 0 -10%; }
+    0.9% { background-position: 0 30%; }
+    1.4% { background-position: 0 65%; }
+    1.9% { background-position: 0 100%; opacity: 0.4; }
+    2.4% { opacity: 0; background-position: 0 130%; }
+  }
+  @keyframes skull-glitch {
+    0%, 100% {
+      transform: translate(0, 0);
+      filter: drop-shadow(0 0 0 transparent) drop-shadow(0 0 0 transparent);
+    }
+    0.4% {
+      transform: translate(-2px, 1px);
+      filter: drop-shadow(-1.5px 0 var(--ember)) drop-shadow(1.5px 0 var(--phosphor));
+    }
+    0.9% {
+      transform: translate(2px, -1px);
+      filter: drop-shadow(1.5px 0 var(--ember)) drop-shadow(-1.5px 0 var(--phosphor));
+    }
+    1.4% {
+      transform: translate(-1px, 0);
+      filter: drop-shadow(-1px 0 var(--ember)) drop-shadow(1px 0 var(--phosphor));
+    }
+    1.9% {
+      transform: translate(1px, 0);
+      filter: drop-shadow(1px 0 var(--ember)) drop-shadow(-1px 0 var(--phosphor));
+    }
+    2.4% {
+      transform: translate(0, 0);
+      filter: drop-shadow(0 0 0 transparent) drop-shadow(0 0 0 transparent);
+    }
+  }
+
+  @media (max-width: 760px) {
+    /* same specificity as the base rules above, so these have to come after
+       them in source order to actually win — see the note by main's own
+       760px override further up. overflow-y:visible stops the skull's
+       top/bottom being cropped now that main can grow taller than the
+       viewport instead of squeezing this row to fit it; the max-width swaps
+       from a viewport-height cap (meaningless once the page scrolls) to a
+       viewport-width one. */
+    .map-wrap { overflow-y: visible; }
+    .map { max-width: min(78vw, 560px); }
   }
 
   .map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 
   /* stroked skull artwork: every path is a centerline stroke; the geodesic
-     balls are the nodes and get tinted by status (class set from NODES in JS) */
-  #skull-art { filter: drop-shadow(0 0 9px var(--signal-glow)); }
+     balls are the nodes and get tinted by status (class set from NODES in JS).
+     Fire palette: --ember (red-orange) is the default/locked stroke color,
+     --flame (yellow-gold) marks the current/active node as the hottest point,
+     --ember-dim is the muted bonus tier. Cleared stays --cleared (green),
+     unchanged — see theme.css for the palette. */
+  /* faint whole-skeleton "breathing" glow — a slow, low-amplitude pulse on
+     the ember drop-shadow so the fire reads as alive, not just colored.
+     Separate from ball-glow below (that's the current node's own faster,
+     brighter pulse); this one is the ambient base everything sits on top of.
+     Starts at 4.5s so it doesn't fight the draw-on reveal (paths finish
+     tracing in by ~4.5s — see the draw-on timing below); reduced-motion
+     users get the base rule's static glow as their resting state, no
+     override needed since it's already a real (non-zero) value, not an
+     animate-from-zero one. */
+  #skull-art { filter: drop-shadow(0 0 9px var(--ember-glow)); }
+  @media (prefers-reduced-motion: no-preference) {
+    main.play #skull-art { animation: skull-breathe 5.5s ease-in-out 4.5s infinite; }
+  }
+  @keyframes skull-breathe {
+    0%, 100% { filter: drop-shadow(0 0 6px var(--ember-glow)); }
+    50% { filter: drop-shadow(0 0 15px var(--ember-glow)); }
+  }
   #skull-art path {
     fill: none;
-    stroke: var(--signal);
+    stroke: var(--ember);
     stroke-width: 2.5;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
   #skull-art .ball.locked { opacity: 0.4; }
   #skull-art .ball.cleared path { stroke: var(--cleared); }
-  #skull-art .ball.bonus path { stroke: var(--signal-dim); }
+  #skull-art .ball.current path { stroke: var(--flame); }
+  #skull-art .ball.bonus path { stroke: var(--ember-dim); }
   @media (prefers-reduced-motion: no-preference) {
     #skull-art .ball.current { animation: ball-glow 2.2s ease-in-out infinite; }
   }
   @keyframes ball-glow {
     0%, 100% { filter: drop-shadow(0 0 0 transparent); }
-    50% { filter: drop-shadow(0 0 12px var(--signal-glow)); }
+    50% { filter: drop-shadow(0 0 12px var(--flame-glow)); }
   }
   @media (prefers-reduced-motion: reduce) {
-    #skull-art .ball.current { filter: drop-shadow(0 0 7px var(--signal-glow)); }
+    #skull-art .ball.current { filter: drop-shadow(0 0 7px var(--flame-glow)); }
   }
 
   /* draw-on: each path carries pathLength="1" and a per-path --d delay, so one
-     rule animates them all; held until the init gate adds .play */
+     rule animates them all; held until the init gate adds .play. Both the
+     per-path duration and the --d delay multiplier are scaled 25% slower
+     (1.3s->1.63s, *1s->*1.25s) so the stagger timing between paths stretches
+     proportionally instead of just the last path taking longer to start —
+     the highest --d in the artwork is 2.29, so the whole reveal now finishes
+     at 2.29*1.25 + 1.63 = ~4.5s (was ~3.6s); the breathing-glow delay and the
+     node-list stagger's base delay below are both anchored to that same
+     ~4.5s so they still wait for the reveal to actually finish. */
   @media (prefers-reduced-motion: no-preference) {
     #skull-art path { stroke-dasharray: 1; stroke-dashoffset: 1; }
     main.play #skull-art path {
-      animation: draw 1.3s cubic-bezier(.4, 0, .2, 1) forwards;
-      animation-delay: calc(var(--d, 0) * 1s);
+      animation: draw 1.63s cubic-bezier(.4, 0, .2, 1) forwards;
+      animation-delay: calc(var(--d, 0) * 1.25s);
     }
   }
   @keyframes draw { to { stroke-dashoffset: 0; } }
-
-  .sweep {
-    position: absolute;
-    top: 0; bottom: 0;
-    left: -140px;
-    width: 140px;
-    background: linear-gradient(90deg, transparent, rgba(255,49,49,0.06), transparent);
-    animation: sweep 7s linear infinite;
-    pointer-events: none;
-  }
-  @keyframes sweep {
-    to { left: 100%; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .sweep { display: none; }
-  }
 
   /* hotspots: transparent circular hit-targets sitting over the artwork balls;
      status is drawn by the ball strokes themselves, the hotspot only carries
@@ -241,15 +345,15 @@
   .node.cleared, .node.current, .node.bonus { cursor: pointer; }
 
   .node.current {
-    box-shadow: 0 0 0 0 var(--signal-glow);
+    box-shadow: 0 0 0 0 var(--flame-glow);
     animation: pulse 2.2s ease-in-out infinite;
   }
   @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 var(--signal-glow); }
-    50% { box-shadow: 0 0 14px 5px var(--signal-glow); }
+    0%, 100% { box-shadow: 0 0 0 0 var(--flame-glow); }
+    50% { box-shadow: 0 0 14px 5px var(--flame-glow); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .node.current { animation: none; box-shadow: 0 0 10px 2px var(--signal-glow); }
+    .node.current { animation: none; box-shadow: 0 0 10px 2px var(--flame-glow); }
   }
 
   .node[tabindex]:hover, .node[tabindex]:focus-visible {
@@ -260,7 +364,7 @@
     content: "";
     position: absolute;
     inset: -6px;
-    border: 1px solid var(--signal);
+    border: 1px solid var(--ember);
     clip-path: polygon(
       0 0, 22% 0, 22% 2px, 2px 2px, 2px 22%, 0 22%,
       0 78%, 2px 78%, 2px 100%, 22% 100%, 22% calc(100% - 2px), 0 calc(100% - 2px),
@@ -280,6 +384,15 @@
     letter-spacing: 0.06em;
     white-space: nowrap;
     color: var(--steel-dim);
+    /* labels sit directly over the skull-art linework, not a flat
+       background, so color contrast alone isn't reliable — a dark halo
+       (stacked so it reads as a solid outline, not one soft blur) keeps
+       them legible over bright strokes without boxing them in a pill,
+       which would look more "UI chrome" than "etched HUD readout" */
+    text-shadow:
+      -1px -1px 2px var(--void), 1px -1px 2px var(--void),
+      -1px 1px 2px var(--void), 1px 1px 2px var(--void),
+      0 0 4px var(--void);
   }
   .node.current ~ .node-label,
   .node.cleared ~ .node-label { color: var(--steel); }
@@ -337,11 +450,11 @@
   .list-dot .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--steel-dim); }
   .list-item.cleared .list-dot { border-color: var(--cleared); }
   .list-item.cleared .dot { background: var(--cleared); }
-  .list-item.current .list-dot { border-color: var(--signal); box-shadow: 0 0 0 4px var(--signal-glow); }
-  .list-item.current .dot { background: var(--signal); }
+  .list-item.current .list-dot { border-color: var(--flame); box-shadow: 0 0 0 4px var(--flame-glow); }
+  .list-item.current .dot { background: var(--flame); }
   .list-item.core .list-dot { width: 28px; height: 28px; }
-  .list-item.bonus .list-dot { border-style: dashed; border-color: var(--signal-dim); width: 18px; height: 18px; }
-  .list-item.bonus .dot { background: var(--signal-dim); }
+  .list-item.bonus .list-dot { border-style: dashed; border-color: var(--ember-dim); width: 18px; height: 18px; }
+  .list-item.bonus .dot { background: var(--ember-dim); }
   .list-item.locked { opacity: 0.6; }
 
   .list-main { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; min-width: 0; }
@@ -358,15 +471,15 @@
     text-transform: uppercase;
     color: var(--steel-dim);
   }
-  .list-item.current .list-status { color: var(--signal); }
+  .list-item.current .list-status { color: var(--flame); }
   .list-item.cleared .list-status { color: var(--cleared); }
-  .list-item.bonus .list-status { color: var(--signal-dim); }
+  .list-item.bonus .list-status { color: var(--ember-dim); }
 
   button.list-item[data-tap="true"] { cursor: pointer; }
   button.list-item[data-tap="true"]:hover .list-label,
   button.list-item[data-tap="true"]:focus-visible .list-label { color: var(--phosphor); }
-  button.list-item[data-tap="true"]:focus-visible { outline: 1px solid var(--signal); outline-offset: 3px; }
-  .list-item.selected .list-label { color: var(--phosphor); text-decoration: underline; text-decoration-color: var(--signal); text-underline-offset: 4px; }
+  button.list-item[data-tap="true"]:focus-visible { outline: 1px solid var(--ember); outline-offset: 3px; }
+  .list-item.selected .list-label { color: var(--phosphor); text-decoration: underline; text-decoration-color: var(--ember); text-underline-offset: 4px; }
 
   /* ---------- briefing panel ---------- */
   .briefing {
@@ -376,7 +489,11 @@
     gap: 16px;
     overflow-y: auto;
   }
-  .briefing-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  /* wrap rather than overflow — the narrow briefing column (min(340px,32vw))
+     plus a long status label ("Active — Awaiting Input") doesn't fit on one
+     line around tablet widths; wrapping drops the pill to its own line
+     instead of clipping off the panel's right edge */
+  .briefing-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .briefing-id {
     font-family: var(--font-mono);
     font-weight: 700;
@@ -396,8 +513,8 @@
   }
   .status-pill.locked { color: var(--steel-dim); }
   .status-pill.cleared { color: var(--cleared); }
-  .status-pill.current { color: var(--signal); }
-  .status-pill.bonus { color: var(--signal-dim); }
+  .status-pill.current { color: var(--flame); }
+  .status-pill.bonus { color: var(--ember-dim); }
 
   .briefing-body {
     font-size: 14px;

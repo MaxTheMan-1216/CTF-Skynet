@@ -33,7 +33,17 @@
   --signal-dim: #5c1512;
   --signal-glow: rgba(255, 49, 49, 0.35);
   --phosphor: #f4f2ec;
-  --cleared: #6b8f7a;
+  --cleared: #35E825;
+  /* fire palette: used for the console's node-skeleton (skull-art strokes,
+     node markers, briefing status pills) — kept separate from --signal so
+     the rest of the site's red accent/danger color is untouched. --ember is
+     the base/default stroke, --flame is the hottest point (the active/
+     "current" node), --ember-dim is the muted tier (bonus/optional nodes). */
+  --ember: #ff3a1a;
+  --ember-dim: #6e2410;
+  --ember-glow: rgba(255, 58, 26, 0.35);
+  --flame: #ffb020;
+  --flame-glow: rgba(255, 176, 32, 0.4);
   --font-mono: "Grid Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
   --font-sans: "Briefing Sans", ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif;
 }
