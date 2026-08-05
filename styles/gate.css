@@ -1,5 +1,38 @@
   html, body { height: 100%; }
 
+  /* ---------- audio toggle: same control as console.html's HUD stat, pinned
+     top-right. Held at opacity:0 and revealed on the same fade-up schedule as
+     .gate (see the no-preference reveal block below) rather than being
+     visible pre-boot — audio can't play before the first interaction anyway
+     (browser autoplay policy), and the race between this button's own click
+     and the page-wide beginBoot() click listener is guarded in JS the same
+     way console.js does it (a userToggled flag set synchronously inside the
+     button handler, checked before beginBoot's own auto-play call). */
+  header {
+    position: fixed;
+    top: clamp(16px, 3vw, 28px);
+    right: clamp(16px, 3vw, 28px);
+    z-index: 10;
+    opacity: 0;
+  }
+  .hud-audio { cursor: pointer; background: none; border: none; padding: 0; font: inherit; text-align: right; }
+  .hud-audio .k {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--steel-dim);
+    text-transform: uppercase;
+  }
+  .hud-audio .v {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--phosphor);
+    margin-top: 2px;
+  }
+  .hud-audio .v.signal { color: var(--signal); }
+  .hud-audio:hover .v, .hud-audio:focus-visible .v { color: var(--signal); }
+  .hud-audio:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
+
   .gate-screen {
     min-height: 100vh;
     display: flex;
@@ -10,17 +43,74 @@
     text-align: center;
   }
 
-  /* faint signal-hiccup: a ~200ms jitter+flicker burst near the start of every
-     10s loop, then flat for the rest — only runs once boot has fired */
+  /* old-CRT signal hiccup: a jagged ~250ms tear burst near the start of every
+     10.6s loop, then flat for the rest — only runs once boot has fired. The
+     first burst is pushed back a full 10.6s (animation-delay) so it doesn't
+     fire mid-reveal and collide with the emblem/wordmark/caption/gate
+     animations, which finish around the 2.3s mark; every following cycle
+     repeats at the normal 10.6s period since delay only holds back iteration 1.
+     Two parts read together as "glitch" rather than a smooth wobble:
+     1) .gate-screen itself snaps position/contrast in hard steps() (no easing
+        — real glitches don't interpolate) and grows a red/phosphor "ghost"
+        double-image via drop-shadow, standing in for chromatic aberration
+        without borrowing a color outside the theme (this is a monochrome
+        red-phosphor terminal, not a color CRT, so a cyan RGB-split would be
+        the wrong artifact for this fiction).
+     2) a fixed ::after sweeps a bright horizontal band top-to-bottom during
+        the same window, like a CRT losing vertical hold. */
   @media (prefers-reduced-motion: no-preference) {
-    .gate-screen.play { animation: glitch 10.6s ease infinite; }
+    .gate-screen.play { animation: glitch 10.6s steps(1, jump-end) 10.6s infinite; }
+    .gate-screen.play::after { animation: glitch-roll 10.6s steps(1, jump-end) 10.6s infinite; }
+  }
+  .gate-screen::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(244, 242, 236, 0.05) 46%,
+      rgba(255, 49, 49, 0.16) 50%,
+      rgba(244, 242, 236, 0.05) 54%,
+      transparent 100%);
+    background-size: 100% 260%;
+    background-repeat: no-repeat;
+  }
+  @keyframes glitch-roll {
+    0%, 100% { opacity: 0; background-position: 0 -30%; }
+    0.4% { opacity: 0.9; background-position: 0 -10%; }
+    0.9% { background-position: 0 30%; }
+    1.4% { background-position: 0 65%; }
+    1.9% { background-position: 0 100%; opacity: 0.7; }
+    2.4% { opacity: 0; background-position: 0 130%; }
   }
   @keyframes glitch {
-    0%, 100% { transform: translate(0, 0); filter: brightness(1) contrast(1); }
-    0.5% { transform: translate(-2px, 1px); filter: brightness(1.15) contrast(1.25); }
-    1% { transform: translate(2px, -1px); filter: brightness(0.9) contrast(1.15); }
-    1.5% { transform: translate(-1px, 0); filter: brightness(1.08) contrast(1.15); }
-    2% { transform: translate(0, 0); filter: brightness(1) contrast(1); }
+    0%, 100% {
+      transform: translate(0, 0);
+      filter: brightness(1) contrast(1) drop-shadow(0 0 0 transparent) drop-shadow(0 0 0 transparent);
+    }
+    0.4% {
+      transform: translate(-6px, 2px);
+      filter: brightness(1.3) contrast(1.4) drop-shadow(-3px 0 var(--signal)) drop-shadow(3px 0 var(--phosphor));
+    }
+    0.9% {
+      transform: translate(5px, -3px);
+      filter: brightness(0.8) contrast(1.3) drop-shadow(4px 0 var(--signal)) drop-shadow(-4px 0 var(--phosphor));
+    }
+    1.4% {
+      transform: translate(-4px, 1px);
+      filter: brightness(1.25) contrast(1.2) drop-shadow(-2px 0 var(--signal)) drop-shadow(2px 0 var(--phosphor));
+    }
+    1.9% {
+      transform: translate(3px, -1px);
+      filter: brightness(0.9) contrast(1.15) drop-shadow(2px 0 var(--signal)) drop-shadow(-2px 0 var(--phosphor));
+    }
+    2.4% {
+      transform: translate(0, 0);
+      filter: brightness(1) contrast(1) drop-shadow(0 0 0 transparent) drop-shadow(0 0 0 transparent);
+    }
   }
 
   /* ---------- emblem: three separate clip-path shapes with real gaps between them ---------- */
@@ -89,11 +179,16 @@
     .gate-screen.play .wordmark { animation: flicker-in 0.63s steps(6, end) 1.31s forwards; }
     .gate-screen.play .caption { animation: fade-up 0.63s ease-out 1.88s forwards; }
     .gate-screen.play .gate { animation: fade-up 0.63s ease-out 2.31s forwards; }
+    /* header is a sibling of .gate-screen, not a descendant, so it can't be
+       reached by a .gate-screen.play descendant selector — beginBoot() adds
+       .play to it directly instead (see gate.js). Same fade-up timing as
+       .gate so the audio control appears alongside the form, once ready. */
+    header.play { animation: fade-up 0.63s ease-out 2.31s forwards; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .emblem { clip-path: inset(0 0 0% 0); }
-    .wordmark, .caption, .gate { opacity: 1; }
+    .wordmark, .caption, .gate, header { opacity: 1; }
     .boot-prompt { display: none; animation: none; }
   }
 
