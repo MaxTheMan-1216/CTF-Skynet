@@ -79,6 +79,15 @@
   .hud-audio { cursor: pointer; background: none; border: none; padding: 0; font: inherit; }
   .hud-audio:hover .v, .hud-audio:focus-visible .v { color: var(--signal); }
   .hud-audio:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
+
+  /* DEV ONLY — see the "reset progress" comments in console.html/console.js;
+     remove this rule alongside those when the button comes out. --signal
+     (danger/accent red) at rest, not just on hover, since this one is
+     destructive rather than a toggle. */
+  .hud-reset { cursor: pointer; background: none; border: none; padding: 0; font: inherit; }
+  .hud-reset .v { color: var(--signal); }
+  .hud-reset:hover .v, .hud-reset:focus-visible .v { text-decoration: underline; }
+  .hud-reset:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
   @media (max-width: 420px) {
     header { padding: 16px 16px 12px; gap: 14px; }
     .hud-stats { gap: 14px; }
@@ -90,21 +99,30 @@
     flex: 1;
     display: grid;
     grid-template-columns: 1fr min(340px, 32vw);
+    /* min-height:0 pins main to exactly fill the viewport's remaining height
+       (header excluded) rather than growing past it — the deliberate
+       tradeoff for "the scroll wheel only scrolls the skeleton": if main
+       were free to grow, the whole *page* would scroll instead (that was
+       the previous fix, now superseded by this request). With main fixed,
+       .map-wrap's grid row is fixed too, so when .map is taller than that
+       (the 25%-bigger skull often is) it overflows inside .map-wrap instead
+       — and .map-wrap's own overflow-y:auto (below) is what turns that into
+       an internally-scrollable box the wheel/scrollbar can reach, rather
+       than main-page-level clipping or scrolling. */
     min-height: 0;
   }
   @media (max-width: 760px) {
     /* Below this width main stacks to one column (map, then briefing/list,
-       one under the other). main's flex:1 + min-height:0 above are what
-       make the two-column desktop layout share exactly the viewport's
-       height — correct there, but in the stacked layout that forces
-       .map-wrap's row shorter than .map's own aspect-ratio height, and
-       .map-wrap's overflow-y:hidden was silently cropping the skull's top
-       and bottom to fit. flex:none + min-height:auto let main (and so the
-       whole page) grow past 100vh and scroll normally instead, so nothing
-       needs to be clipped. The .map-wrap/.map overrides for this same
-       breakpoint live further down, right after their base rules — same
-       specificity as the base rules, so they have to come after in source
-       order or the base rules win regardless of the media query. */
+       one under the other) — the internal-scroll-the-map-only behavior above
+       stops making sense once map and briefing are stacked rather than
+       side-by-side (the whole point is which sits still while the other
+       scrolls, and there's no "other" here), so this still opts the stacked
+       layout back into the older page-scrolls-normally behavior instead:
+       flex:none + min-height:auto let main (and so the whole page) grow
+       past 100vh. The .map-wrap/.map overrides for this same breakpoint
+       live further down, right after their base rules — same specificity as
+       the base rules, so they have to come after in source order or the
+       base rules win regardless of the media query. */
     main { grid-template-columns: 1fr; flex: none; min-height: auto; }
   }
 
@@ -165,10 +183,25 @@
   .map-wrap {
     position: relative;
     overflow-x: auto;
-    overflow-y: hidden;
+    /* was overflow-y:hidden, which cropped the skull instead of scrolling to
+       it. auto is what makes this box the scroll container: main is pinned
+       to a fixed height again (see its own comment above), so whenever
+       .map is taller than that — the common case now that it's 25% bigger —
+       it overflows *inside* this box, and the mouse wheel/scrollbar reaches
+       this nearest scrollable ancestor rather than the page. */
+    overflow-y: auto;
     border-right: 1px solid var(--panel-edge);
     display: flex;
-    align-items: center;
+    /* safe (not plain center): plain center centers .map even when it
+       overflows, by shifting it partially above this box's top edge — and a
+       scroll container's default scroll range starts at that shifted
+       position, so the part pushed above it becomes permanently
+       unreachable, no amount of scrolling gets back to it. "safe" is the
+       explicit opt-in to fall back to start-alignment instead whenever
+       centering would push content out of scroll range, so the whole skull
+       stays reachable; centering still happens normally whenever .map
+       actually fits without scrolling. */
+    align-items: safe center;
     container-type: inline-size;
   }
   .map-wrap::-webkit-scrollbar { height: 8px; }
@@ -178,8 +211,13 @@
     position: relative;
     width: 100%;
     /* width-driven so it always resolves (the grid row has no definite
-       height); the vh cap keeps the near-square art from overflowing vertically */
-    max-width: min(78vh, 760px);
+       height); the vh cap keeps the near-square art from overflowing
+       vertically. 97.5vh/950px = the previous 78vh/760px cap scaled up 25%
+       (the whole skull+node artwork, since #skull-art and the hotspot layer
+       both size off this box) — on most desktop viewports the vh term is
+       what's actually binding (screen height < the .map-wrap column's
+       available width), so this is what visibly grows it. */
+    max-width: min(97.5vh, 950px);
     /* must match #skull-art's viewBox aspect ratio exactly (console.html) —
        any mismatch here letterboxes the SVG inside its own box via
        preserveAspectRatio's default xMidYMid-meet behavior, adding back
@@ -254,15 +292,14 @@
   }
 
   @media (max-width: 760px) {
-    /* same specificity as the base rules above, so these have to come after
-       them in source order to actually win — see the note by main's own
-       760px override further up. overflow-y:visible stops the skull's
-       top/bottom being cropped now that main can grow taller than the
-       viewport instead of squeezing this row to fit it; the max-width swaps
-       from a viewport-height cap (meaningless once the page scrolls) to a
-       viewport-width one. */
-    .map-wrap { overflow-y: visible; }
-    .map { max-width: min(78vw, 560px); }
+    /* same specificity as the base rule above, so this has to come after it
+       in source order to actually win — see the note by main's own 760px
+       override further up. .map-wrap's overflow-y is already auto at every
+       width now (see its base rule); this swap is just the max-width term:
+       a viewport-height cap stops being the right thing to size off once
+       the layout stacks to one column and can scroll, so below this width
+       it's a viewport-width cap instead. */
+    .map { max-width: min(97.5vw, 700px); } /* same 25% bump as the desktop cap above */
   }
 
   .map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -301,15 +338,21 @@
   #skull-art .ball.cleared path { stroke: var(--cleared); }
   #skull-art .ball.current path { stroke: var(--flame); }
   #skull-art .ball.bonus path { stroke: var(--ember-dim); }
+  /* the bonus-status node (UNKNOWN SIGNAL) keeps its dim ember stroke tint
+     above, but no longer flashes — the pulsing glow (both here and on the
+     .node hotspot ring below) was requested removed from it specifically,
+     while staying on CORE (n7's .glow flag, not a status) instead. Only
+     .ball.current still triggers ball-glow. */
+  #skull-art .ball.current { --ball-glow: var(--flame-glow); }
   @media (prefers-reduced-motion: no-preference) {
     #skull-art .ball.current { animation: ball-glow 2.2s ease-in-out infinite; }
   }
   @keyframes ball-glow {
     0%, 100% { filter: drop-shadow(0 0 0 transparent); }
-    50% { filter: drop-shadow(0 0 12px var(--flame-glow)); }
+    50% { filter: drop-shadow(0 0 12px var(--ball-glow)); }
   }
   @media (prefers-reduced-motion: reduce) {
-    #skull-art .ball.current { filter: drop-shadow(0 0 7px var(--flame-glow)); }
+    #skull-art .ball.current { filter: drop-shadow(0 0 7px var(--ball-glow)); }
   }
 
   /* draw-on: each path carries pathLength="1" and a per-path --d delay, so one
@@ -339,21 +382,32 @@
     height: clamp(36px, 7cqw, 56px);
     transform: translate(-50%, -50%);
     border-radius: 50%;
-    cursor: default;
+    /* every node is interactable regardless of status (locked included —
+       clicking one just shows its still-locked briefing, see
+       renderBriefing's status==="locked" branch in console.js), so pointer
+       is the base now instead of a per-status add-on. */
+    cursor: pointer;
   }
 
-  .node.cleared, .node.current, .node.bonus { cursor: pointer; }
-
-  .node.current {
-    box-shadow: 0 0 0 0 var(--flame-glow);
+  /* same pulse keyframe reused for both current and .glow (CORE's own accent
+     flag — see NODES in console.js, not a status), parameterized by
+     --pulse-glow so each can flash its own color without a second keyframe
+     block to keep in sync. The bonus *status* (UNKNOWN SIGNAL) used to share
+     this too; removed on request — it keeps its ember-dim tint elsewhere,
+     just doesn't pulse anymore. */
+  .node.current { --pulse-glow: var(--flame-glow); }
+  .node.glow { --pulse-glow: var(--ember-glow); }
+  .node.current,
+  .node.glow {
+    box-shadow: 0 0 0 0 var(--pulse-glow);
     animation: pulse 2.2s ease-in-out infinite;
   }
   @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 var(--flame-glow); }
-    50% { box-shadow: 0 0 14px 5px var(--flame-glow); }
+    0%, 100% { box-shadow: 0 0 0 0 var(--pulse-glow); }
+    50% { box-shadow: 0 0 14px 5px var(--pulse-glow); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .node.current { animation: none; box-shadow: 0 0 10px 2px var(--flame-glow); }
+    .node.current, .node.glow { animation: none; box-shadow: 0 0 10px 2px var(--pulse-glow); }
   }
 
   .node[tabindex]:hover, .node[tabindex]:focus-visible {
@@ -383,7 +437,10 @@
     font-size: clamp(8px, 1.6cqw, 10px);
     letter-spacing: 0.06em;
     white-space: nowrap;
-    color: var(--steel-dim);
+    /* red (--ember) is the base for every node name; cleared is the one
+       exception, overridden green below to match --cleared everywhere else
+       (ball stroke, list-item dot/status) that already marks a done node */
+    color: var(--ember);
     /* labels sit directly over the skull-art linework, not a flat
        background, so color contrast alone isn't reliable — a dark halo
        (stacked so it reads as a solid outline, not one soft blur) keeps
@@ -394,8 +451,7 @@
       -1px 1px 2px var(--void), 1px 1px 2px var(--void),
       0 0 4px var(--void);
   }
-  .node.current ~ .node-label,
-  .node.cleared ~ .node-label { color: var(--steel); }
+  .node.cleared ~ .node-label { color: var(--cleared); }
 
   /* ---------- mobile step-list (replaces the graph under 640px) ---------- */
   .list-view {
@@ -420,7 +476,10 @@
     text-align: left;
     font: inherit;
     color: inherit;
-    cursor: default;
+    /* every list item is a real <button data-tap="true"> now (all nodes are
+       interactable, locked included), so pointer is just the base — no
+       remaining case where a list item isn't tappable */
+    cursor: pointer;
     width: 100%;
   }
   .list-item:last-child { padding-bottom: 0; }
