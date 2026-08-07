@@ -28,7 +28,11 @@
     { id: "n4", x: 1171, y: 1370, status: "locked", label: "NODE_04", title: "NODE_04",
       answer: "flag{node_04}",
       body: "Route not yet established. Clearing NODE_03 unlocks this segment." },
-    { id: "n5", x: 851, y: 1461, status: "locked", label: "NODE_05", title: "NODE_05",
+    // x/y moved off #ball-n5's own bbox center (~854,1450) to ~526,1376 on
+    // request — the hotspot now sits over a different cluster of paths than
+    // the ball it still visually/statically colors (#ball-n5 itself is
+    // untouched). Deliberate split between click target and colored marker.
+    { id: "n5", x: 526, y: 1376, status: "locked", label: "NODE_05", title: "NODE_05",
       answer: "flag{node_05}",
       body: "Route not yet established." },
     { id: "n6", x: 161, y: 966, status: "locked", label: "NODE_06", title: "NODE_06",
@@ -51,7 +55,13 @@
   // part of the linear progression.
   const CHAIN = ["n1", "n2", "n3", "n4", "n5", "n6", "n7"];
 
-  const BONUS_ROUTES = [["n2","b1"]];
+  // [from, to]: on the mobile step-list (<640px, see .list-view/buildList
+  // below), `to` renders indented right after `from` instead of in its own
+  // place in the main sequence — the only thing this drives; there's no
+  // corresponding line drawn on the desktop map, so this is purely a
+  // mobile-layout position, not a puzzle/gameplay dependency. Set to n6 so
+  // the bonus branch shows up after NODE_06 on that layout.
+  const BONUS_ROUTES = [["n6","b1"]];
   const STATUS_CLASSES = ["cleared", "current", "locked", "bonus"];
 
   // ---------- session retention ----------
@@ -69,7 +79,10 @@
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!saved) return;
       NODES.forEach(n => {
-        if (STATUS_CLASSES.includes(saved[n.id])) n.status = saved[n.id];
+        const entry = saved[n.id];
+        if (!entry) return;
+        if (STATUS_CLASSES.includes(entry.status)) n.status = entry.status;
+        if (typeof entry.submittedAnswer === "string") n.submittedAnswer = entry.submittedAnswer;
       });
     } catch (err) {
       // ignore — falls back to each node's coded-in default status
@@ -79,7 +92,13 @@
 
   function saveProgress() {
     try {
-      const state = Object.fromEntries(NODES.map(n => [n.id, n.status]));
+      // { status, submittedAnswer } per node — submittedAnswer carries the
+      // exact text that was typed in (see the flag-demo handler in
+      // renderBriefing), so a reload can keep showing it in the read-only
+      // "solved" box instead of falling back to the canonical answer.
+      const state = Object.fromEntries(
+        NODES.map(n => [n.id, { status: n.status, submittedAnswer: n.submittedAnswer }])
+      );
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (err) {
       // ignore — this session just won't persist
@@ -238,6 +257,7 @@
     const n = byId[id];
     n.status = "cleared";
     syncStatus(n);
+    celebrateClear(n); // green draw-on replay + ducked music + chime — see below
 
     const next = byId[CHAIN[CHAIN.indexOf(id) + 1]];
     if (next) {
@@ -250,6 +270,74 @@
 
     saveProgress();
     selectNode(id);
+  }
+
+  // Plays the "just solved it" feedback: replays the skull's boot-time
+  // draw-on reveal (in its own keyframe, clear-draw — see the CSS comment
+  // for why it's not literally "draw") on just this one node's ball,
+  // recolored green via .just-cleared, and hands the ambient loop off to
+  // Cleared.mp3 — faded out (not cut) first, fully paused while the chime
+  // plays so the two are never audible at once, then faded back in after.
+  // Only ever called from clearNode() (a live transition) — never from the
+  // boot-time NODES.forEach(syncStatus) pass below, so a node that was
+  // already cleared in a previous session just gets the normal (instant,
+  // already-green) boot reveal on reload, not a replay of this celebration.
+  function celebrateClear(n) {
+    const ball = ballEls[n.id];
+    if (ball) {
+      // Fresh per-path stagger scoped to just this ball's own paths — the
+      // paths' existing --d delays are calibrated for their place in the
+      // *whole-skull* boot sequence (values up to ~2.29), which would make
+      // an isolated single-ball replay start absurdly late; --cd is a plain
+      // 0,1,2... index instead, local to just this one group.
+      ball.querySelectorAll("path").forEach((p, i) => p.style.setProperty("--cd", i));
+      ball.classList.add("just-cleared"); // permanent — see the CSS comment for why it's never removed
+    }
+
+    if (!clearedAudio) return;
+    const FADE_MS = 500;
+    const themePlaying = !audioEl.paused;
+    const themeRestoreVolume = audioEl.volume;
+
+    function playChime() {
+      if (themePlaying) audioEl.pause(); // fully stopped before the chime starts — no simultaneous playback
+
+      let resumed = false;
+      function resumeTheme() {
+        if (resumed) return;
+        resumed = true;
+        if (themePlaying) {
+          audioEl.volume = 0; // start silent and fade back in, rather than snapping to full volume
+          audioEl.play().catch(() => {});
+          fadeVolume(audioEl, themeRestoreVolume, FADE_MS);
+        }
+      }
+      clearedAudio.currentTime = 0;
+      clearedAudio.addEventListener("ended", resumeTheme, { once: true });
+      clearedAudio.play().catch(resumeTheme);
+      setTimeout(resumeTheme, 8900); // clip is ~8.4s; safety net in case "ended" never fires
+    }
+
+    // Fade the ambient track out first, THEN start the chime once it's
+    // actually silent — smooth (not an instant cut), but no window where
+    // both are audible together, unlike a straight volume duck would give.
+    if (themePlaying) fadeVolume(audioEl, 0, FADE_MS, playChime);
+    else playChime();
+  }
+
+  // Ramps an <audio> element's volume from its current value to `target`
+  // over `ms` milliseconds, then calls `done` (if given) — used above to
+  // fade the ambient track out/in smoothly instead of an abrupt volume jump.
+  function fadeVolume(audio, target, ms, done) {
+    const start = audio.volume;
+    const startTime = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - startTime) / ms);
+      audio.volume = start + (target - start) * t;
+      if (t < 1) requestAnimationFrame(step);
+      else if (done) done();
+    }
+    requestAnimationFrame(step);
   }
 
   function renderBriefing(n) {
@@ -292,11 +380,35 @@
           msg.textContent = "// enter something to see this state.";
         } else if (n.answer && val.toLowerCase() === n.answer.toLowerCase()) {
           msg.textContent = "// ACCESS GRANTED — segment neutralized.";
+          n.submittedAnswer = val; // exactly what was typed (not the canonical n.answer) — read back below once cleared
           clearNode(n.id); // placeholder check only — swap for a real validator later
         } else {
           msg.textContent = "// ACCESS DENIED — incorrect.";
         }
       });
+      briefingEl.appendChild(demo);
+    }
+
+    // Once cleared, the briefing keeps showing the flag box — but read-only
+    // and pre-filled, so it reads as "here's what solved this" rather than
+    // just disappearing. n.submittedAnswer is only set by the handler above
+    // (a live clear); a node that was already cleared before this feature
+    // existed, or loaded from an older save with no recorded input, falls
+    // back to showing the canonical n.answer instead of an empty box.
+    if (n.status === "cleared") {
+      const demo = document.createElement("div");
+      demo.className = "flag-demo flag-demo-solved";
+      demo.innerHTML = `
+        <div class="label">Flag Submission — solved</div>
+        <div class="flag-row"></div>
+        <div class="flag-msg">// ACCESS GRANTED — segment neutralized.</div>`;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.readOnly = true;
+      input.disabled = true;
+      input.setAttribute("aria-label", "Submitted flag");
+      input.value = n.submittedAnswer || n.answer || ""; // DOM property, not an HTML attribute — safe against user-typed quotes/markup
+      demo.querySelector(".flag-row").appendChild(input);
       briefingEl.appendChild(demo);
     }
   }
@@ -338,6 +450,7 @@
   const audioEl = document.getElementById("theme-audio");
   const audioToggle = document.getElementById("audio-toggle");
   const audioState = document.getElementById("audio-state");
+  const clearedAudio = document.getElementById("cleared-audio"); // used by celebrateClear() above
   let userToggled = false;
 
   function syncAudioLabel() {

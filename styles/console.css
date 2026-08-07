@@ -355,6 +355,47 @@
     #skull-art .ball.current { filter: drop-shadow(0 0 7px var(--ball-glow)); }
   }
 
+  /* "just solved it" celebration: replays the boot draw-on look (same
+     stroke-dashoffset technique as "draw" further down) on just one ball, in
+     green — added by celebrateClear() in console.js the moment a node is
+     actually cleared, never during the initial boot render. This uses its
+     OWN keyframe (clear-draw) rather than reusing "draw": reusing the same
+     @keyframes name across two different rules doesn't reliably restart the
+     animation when a higher-specificity rule takes over mid-page-life —
+     browsers generally treat "still named draw" as the same continuing
+     animation instance rather than a fresh one, since that name was already
+     running (and finished) on these exact paths at boot. A distinct name
+     sidesteps that ambiguity entirely instead of depending on it. --cd is a
+     plain per-path index set right before this class is added (see
+     celebrateClear), not the boot reveal's whole-skull --d delay — reusing
+     --d here would stagger a single ball's few paths across most of the
+     original ~2.3s whole-skull sequence, which reads as "broken", not
+     "replaying the reveal". .just-cleared is never removed afterward —
+     nothing to revert to, .ball.cleared path below already holds the same
+     green/solid end state permanently either way. */
+  @media (prefers-reduced-motion: no-preference) {
+    /* another 25% slower on top of the first pass (0.875*1.25=1.09,
+       75*1.25=94), so 1.09s/94ms overall — 56% slower than the original
+       0.7s/60ms. Both scaled together, same reasoning as the boot draw-on's
+       own 25% slowdown further down: scaling only the duration and leaving
+       the per-path stagger multiplier alone would just make the last path
+       take longer to start, not stretch the stagger itself proportionally. */
+    #skull-art .ball.just-cleared path {
+      stroke: var(--cleared);
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: clear-draw 1.60s cubic-bezier(.4, 0, .2, 1) forwards,
+                 clear-flash 1.60s ease-out forwards;
+      animation-delay: calc(var(--cd, 0) * 94ms);
+    }
+  }
+  @keyframes clear-draw { to { stroke-dashoffset: 0; } }
+  @keyframes clear-flash {
+    0% { filter: drop-shadow(0 0 0 transparent); }
+    60% { filter: drop-shadow(0 0 14px var(--cleared)); }
+    100% { filter: drop-shadow(0 0 0 transparent); }
+  }
+
   /* draw-on: each path carries pathLength="1" and a per-path --d delay, so one
      rule animates them all; held until the init gate adds .play. Both the
      per-path duration and the --d delay multiplier are scaled 25% slower
@@ -621,6 +662,17 @@
     outline: 1px solid var(--signal);
     outline-offset: 1px;
   }
+  /* read-only "already solved" state (renderBriefing's cleared branch) —
+     green-tinted instead of the default panel-edge border, so it reads as
+     "locked in, done" rather than just a disabled/greyed-out control */
+  .flag-demo-solved { border-color: var(--cleared); }
+  .flag-row input:disabled {
+    color: var(--cleared);
+    border-color: var(--cleared);
+    cursor: default;
+    opacity: 1; /* override the browser's default dimmed-disabled look — this isn't inactive, it's a completed record */
+  }
+  .flag-demo-solved .flag-msg { color: var(--cleared); }
   .flag-row button {
     font-family: var(--font-mono);
     font-size: 12px;
