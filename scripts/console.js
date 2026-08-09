@@ -11,43 +11,69 @@
   // % of .map (not inside the SVG) and have to track it independently.
   const VIEW_X = 97, VIEW_Y = 37;
   const MAP_W = 1518, MAP_H = 1483;
-  // `answer` is a placeholder check only (plain-text, client-side, trimmed +
-  // lower-cased before compare) — swap in real puzzles/validation later.
+  // `answer` is checked plain-text, client-side, trimmed + lower-cased before
+  // compare — fine for a CTF flag gate, not a substitute for server auth.
   // `status` is each node's INITIAL state; clearNode() below mutates it at
   // runtime as the chain is solved, it's not re-read from here after boot.
+  // `cipher` (optional) is the puzzle payload rendered in the briefing once a
+  // node is current/cleared (see renderBriefing): { type: "text", label,
+  // value } for a ciphertext block, or { type: "audio", label, src } for a
+  // playable clip. `meta` (optional) is a small dim sign-off line under the
+  // cipher — in-fiction packet header, but its actual job is seeding a value
+  // a LATER node's key material reuses (e.g. n1's timestamp feeds n5's
+  // Vigenère key) — chaining lore and mechanics together across nodes.
   const NODES = [
     { id: "n1", x: 1401, y: 229, status: "current", label: "NODE_01", title: "NODE_01",
-      answer: "flag{node_01}",
-      body: "Segment breach in progress. Placeholder challenge — enter the placeholder flag below to clear it and unlock NODE_02." },
+      answer: "flag{no_fate_but_what_we_make}",
+      body: "Segment breach in progress. This relay is the oldest hardware on the grid — nothing ever got far enough in to need hardening here. What's cached in its buffer is a fragment of a pre-Judgment-Day human broadcast, run through whatever rotation cipher was lying around. Recover the plaintext to neutralize the segment and open NODE_02.",
+      cipher: { type: "text", label: "Intercepted Transmission — Legacy Cipher", value: "AB SNGR OHG JUNG JR ZNXR" },
+      // Forward seed for NODE_05's Vigenère key (Judgment Day: 1997-08-29,
+      // 02:14 local) — dressed as routine packet metadata so it reads as
+      // scenery here, not a hint. Nothing downstream depends on it existing
+      // as a comment; it's an authoring note so I don't lose the number.
+      meta: "// signal header — freq 91.1 · origin 0829-0214" },
     { id: "n2", x: 1028, y: 436, status: "locked", label: "NODE_02", title: "NODE_02",
-      answer: "flag{node_02}",
-      body: "Route not yet established. Clearing NODE_01 unlocks this segment." },
+      answer: "flag{come_with_me_if_you_want_to_live}",
+      body: "Route established. This segment isn't holding text — it's holding a beacon. Whatever was cached here came in over the air, not down a wire. There's no transcript, no dots and dashes on screen: just the recording. Listen, and write down what you hear.",
+      cipher: { type: "audio", label: "Intercepted Transmission — Audio Beacon", src: "audio/Node02_Signal.wav" } },
     { id: "n3", x: 966, y: 650, status: "locked", label: "NODE_03", title: "NODE_03",
-      answer: "flag{node_03}",
-      body: "Encryption on this segment is live — the right ocular array is watching. This is where a real challenge — and its flag check — will sit." },
+      answer: "flag{the_future_is_not_set}",
+      body: "Route established. No cipher on this one — just a raw dump off the right ocular array's targeting log. It sees everything as data before it renders anything as a picture. Read the bytes as ASCII.",
+      cipher: { type: "text", label: "Ocular Array — Targeting Log Dump", value: "54 48 45 20 46 55 54 55 52 45 20 49 53 20 4E 4F 54 20 53 45 54" } },
     { id: "n4", x: 1171, y: 1370, status: "locked", label: "NODE_04", title: "NODE_04",
-      answer: "flag{node_04}",
-      body: "Route not yet established. Clearing NODE_03 unlocks this segment." },
-    // x/y moved off #ball-n5's own bbox center (~854,1450) to ~526,1376 on
-    // request — the hotspot now sits over a different cluster of paths than
-    // the ball it still visually/statically colors (#ball-n5 itself is
-    // untouched). Deliberate split between click target and colored marker.
+      answer: "flag{i_need_your_clothes_your_boots_and_your_motorcycle}",
+      body: "Route established. This isn't a recovered broadcast — everything up to here has been someone else's signal, caught in passing. This segment is Skynet's own outbound queue. A logged command, wire-encoded for transit, addressed to a unit already in the field.",
+      cipher: { type: "text", label: "Outbound Queue — Unit Command", value: "SSBORUVEIFlPVVIgQ0xPVEhFUyBZT1VSIEJPT1RTIEFORCBZT1VSIE1PVE9SQ1lDTEU=" } },
+    // Historical: this hotspot was once split from #ball-n5's drawn position; since
+    // the artwork regeneration the #ball-n5 group is generated at exactly this
+    // x/y (bottom-left ball), so click target and colored marker coincide
+    // again — no split remains.
     { id: "n5", x: 526, y: 1376, status: "locked", label: "NODE_05", title: "NODE_05",
-      answer: "flag{node_05}",
-      body: "Route not yet established." },
+      answer: "flag{it_cant_be_bargained_with_it_cant_be_reasoned_with}",
+      body: "Route established. This one's genuinely encrypted, not just encoded — whatever's in this directive, Skynet didn't want it read even if the packet was intercepted. Every letter's shifted, but not by the same amount twice; the pattern repeats on some cycle. If there's a key anywhere, it isn't on this segment.",
+      cipher: { type: "text", label: "Internal Directive — Keyed Cipher", value: "IV DENV CI BCSKAKOID YJXH KU GAPU FE TFESQOID YJXH" } },
     { id: "n6", x: 161, y: 966, status: "locked", label: "NODE_06", title: "NODE_06",
-      answer: "flag{node_06}",
-      body: "Route not yet established." },
+      answer: "flag{hasta_la_vista_baby}",
+      body: "Route established. Another targeting readout, same family as the ocular array's dump a few segments back — but this one isn't raw bytes, it's grid references. Row, then column. A-to-Z, twenty-five cells, I and J sharing one.",
+      cipher: { type: "text", label: "Targeting Grid — Coordinate Pairs", value: "23 11 43 44 11 / 31 11 / 51 24 43 44 11 / 12 11 12 54" } },
     // glow:true is a pure visual-accent flag (own red pulse on the map,
     // see .node.glow in console.css) — unrelated to `status`, and not the
     // same thing as b1's status:"bonus" below despite both once sharing the
     // CSS class name "bonus" (that collision was the actual bug behind CORE
     // and UNKNOWN SIGNAL looking identical; renamed to stop it).
     { id: "n7", x: 554, y: 648, status: "locked", label: "CORE", title: "CORE — MAINFRAME", glow: true,
-      answer: "flag{core}",
-      body: "The network's root process. Intended as the final challenge — clearing every prior node exposes it." },
-    { id: "b1", x: 160, y: 616, status: "bonus", label: "??", title: "UNKNOWN SIGNAL", core: true,
-      body: "An anomalous return in the left ocular array. Reserved for an optional / bonus objective, if one gets designed." },
+      answer: "flag{the_future_is_not_set_there_is_no_fate_but_what_we_make_for_ourselves}",
+      body: "The network's root process — clearing every prior node exposes it, literally, not just narratively. The lock isn't stored anywhere on this segment; it's assembled. Six letters, one from each signal already broken, taken in the order they were broken. XOR the log against that key.",
+      cipher: { type: "text", label: "Root Process — Assembled-Key Cipher", value: "1A 0B 11 69 0F 1D 1A 16 06 0C 69 01 1D 63 1A 06 1D 68 1D 06 00 69 1D 00 0B 11 11 69 00 1B 6E 0D 1B 69 0F 09 1A 06 74 0B 1C 1C 6E 14 1C 08 1D 68 19 06 74 04 08 03 0B 63 12 06 1B 68 01 16 06 1A 0C 04 18 06 07" } },
+    // unlocked starts false — flipped true by clearNode() when whatever
+    // BONUS_ROUTES pairs to this id clears (currently NODE_06). Status stays
+    // "bonus" throughout, even after unlocking — it keeps the dim/ember
+    // treatment rather than switching to .current's pulse; renderBriefing
+    // is what actually gates on `unlocked`, not the CSS.
+    { id: "b1", x: 160, y: 616, status: "bonus", unlocked: false, label: "??", title: "UNKNOWN SIGNAL", core: true,
+      answer: "flag{root_key_nctiih}",
+      body: "An anomalous return in the left ocular array — mirrored, not garbled. Optional; skipping it costs nothing but a shortcut. Whatever's in here isn't required to reach CORE, just faster to get there.",
+      cipher: { type: "text", label: "Mirrored Signal — Left Ocular Array", value: "ILLG PVB MXGRRS" } },
   ];
 
   // Solve order for the main chain — clearing CHAIN[i] unlocks CHAIN[i + 1].
@@ -83,12 +109,23 @@
         if (!entry) return;
         if (STATUS_CLASSES.includes(entry.status)) n.status = entry.status;
         if (typeof entry.submittedAnswer === "string") n.submittedAnswer = entry.submittedAnswer;
+        if (typeof entry.unlocked === "boolean") n.unlocked = entry.unlocked;
       });
     } catch (err) {
       // ignore — falls back to each node's coded-in default status
     }
   }
   loadProgress(); // must run before any DOM is built below, so first render reflects it
+
+  // Backfill for saves written before bonus-unlocking existed: if the node
+  // a BONUS_ROUTES pair triggers on is already cleared, the target should
+  // be unlocked regardless of what (if anything) was stored for it. Written
+  // against NODES directly (not byId) — byId isn't built until below.
+  BONUS_ROUTES.forEach(([from, to]) => {
+    const fromNode = NODES.find(n => n.id === from);
+    const toNode = NODES.find(n => n.id === to);
+    if (fromNode && fromNode.status === "cleared" && toNode) toNode.unlocked = true;
+  });
 
   function saveProgress() {
     try {
@@ -97,7 +134,7 @@
       // renderBriefing), so a reload can keep showing it in the read-only
       // "solved" box instead of falling back to the canonical answer.
       const state = Object.fromEntries(
-        NODES.map(n => [n.id, { status: n.status, submittedAnswer: n.submittedAnswer }])
+        NODES.map(n => [n.id, { status: n.status, submittedAnswer: n.submittedAnswer, unlocked: n.unlocked }])
       );
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (err) {
@@ -137,8 +174,27 @@
     if (g) ballEls[n.id] = g;
   });
 
-  function statusLabel(s) {
-    return { cleared: "Cleared", current: "Active — Awaiting Input", locked: "Locked", bonus: "Hidden" }[s];
+  // Loosens flag-checking so the `flag{...}` wrapper is optional and
+  // underscores/spaces are interchangeable — a player typing the plain
+  // decoded phrase (any case, with real spaces) should pass just as well as
+  // one typing the exact canonical form. Used to compare both the typed
+  // value and n.answer, so it never matters which form either side is in.
+  function normalizeAnswer(s) {
+    return s
+      .trim()
+      .toLowerCase()
+      .replace(/^flag\{(.*)\}$/, "$1")
+      .replace(/[_\s]+/g, " ")
+      .trim();
+  }
+
+  // Takes the whole node (not just its status string) so bonus nodes can
+  // read differently once unlocked without needing a status of their own —
+  // status stays "bonus" throughout (see the NODES comment on b1); this is
+  // just the label text noticing the change.
+  function statusLabel(n) {
+    if (n.status === "bonus") return n.unlocked ? "Signal Isolated" : "Hidden";
+    return { cleared: "Cleared", current: "Active — Awaiting Input", locked: "Locked" }[n.status];
   }
 
   NODES.forEach((n, i) => {
@@ -184,7 +240,7 @@
       '<span class="list-dot"><span class="dot"></span></span>' +
       '<span class="list-main">' +
         '<span class="list-label">' + n.label + '</span>' +
-        '<span class="list-status">' + statusLabel(n.status) + '</span>' +
+        '<span class="list-status">' + statusLabel(n) + '</span>' +
       '</span>';
     el.addEventListener("click", () => selectNode(n.id));
     return el;
@@ -225,27 +281,35 @@
   // n.status — the single place all three DOM views get kept in sync,
   // called once for every node at boot and again from clearNode() below.
   function syncStatus(n) {
+    // `unlocked` is its own class alongside status — a bonus node's status
+    // stays "bonus" whether or not it's been unlocked (see the NODES
+    // comment on b1), so this is the only visual hook CSS has for "found
+    // but not yet solved" vs. "not found yet".
+    const unlockedClass = n.unlocked ? " unlocked" : "";
+
     const ball = ballEls[n.id];
     if (ball) {
       STATUS_CLASSES.forEach(c => ball.classList.remove(c));
+      ball.classList.remove("unlocked");
       ball.classList.add(n.status);
+      if (n.unlocked) ball.classList.add("unlocked");
     }
 
     const btn = nodeEls[n.id];
     if (btn) {
-      btn.className = "node " + n.status + (n.core ? " core" : "") + (n.glow ? " glow" : "");
+      btn.className = "node " + n.status + unlockedClass + (n.core ? " core" : "") + (n.glow ? " glow" : "");
       // Always focusable/labeled now — every node is interactable regardless
       // of status, locked included.
       btn.tabIndex = 0;
       btn.setAttribute("role", "button");
-      btn.setAttribute("aria-label", n.title + " — " + statusLabel(n.status));
+      btn.setAttribute("aria-label", n.title + " — " + statusLabel(n));
     }
 
     const item = listEls[n.id];
     if (item) {
-      item.className = "list-item " + n.status + (n.core ? " core" : "") + (n.glow ? " glow" : "");
+      item.className = "list-item " + n.status + unlockedClass + (n.core ? " core" : "") + (n.glow ? " glow" : "");
       const label = item.querySelector(".list-status");
-      if (label) label.textContent = statusLabel(n.status);
+      if (label) label.textContent = statusLabel(n);
     }
   }
   NODES.forEach(syncStatus);
@@ -259,13 +323,31 @@
     syncStatus(n);
     celebrateClear(n); // green draw-on replay + ducked music + chime — see below
 
-    const next = byId[CHAIN[CHAIN.indexOf(id) + 1]];
+    // CHAIN.indexOf(id) is -1 for a non-chain id (b1) — CHAIN[-1 + 1] is
+    // CHAIN[0], which used to silently hand "next" to NODE_01 whenever the
+    // bonus node cleared. Guarded now so clearing b1 can't reach into the
+    // main chain at all.
+    const chainIdx = CHAIN.indexOf(id);
+    const next = chainIdx >= 0 ? byId[CHAIN[chainIdx + 1]] : null;
     if (next) {
       next.status = "current";
       syncStatus(next);
     }
 
-    const clearedNow = NODES.filter(x => x.status === "cleared").length;
+    // Unlocks whatever bonus node this id feeds, per BONUS_ROUTES — status
+    // stays "bonus" (not "current"), see the NODES comment on b1 for why.
+    BONUS_ROUTES.forEach(([from, to]) => {
+      if (from === id) {
+        const bonus = byId[to];
+        bonus.unlocked = true;
+        syncStatus(bonus);
+      }
+    });
+
+    // Counts only main-chain nodes — a cleared bonus node also has
+    // status "cleared" but isn't part of `totalMain` (CHAIN.length), so
+    // counting it here would show e.g. "8 / 7".
+    const clearedNow = NODES.filter(x => CHAIN.includes(x.id) && x.status === "cleared").length;
     document.getElementById("stat-cleared").textContent = clearedNow + " / " + totalMain;
 
     saveProgress();
@@ -295,34 +377,37 @@
     }
 
     if (!clearedAudio) return;
-    const FADE_MS = 500;
-    const themePlaying = !audioEl.paused;
-    const themeRestoreVolume = audioEl.volume;
 
-    function playChime() {
-      if (themePlaying) audioEl.pause(); // fully stopped before the chime starts — no simultaneous playback
-
-      let resumed = false;
-      function resumeTheme() {
-        if (resumed) return;
-        resumed = true;
-        if (themePlaying) {
-          audioEl.volume = 0; // start silent and fade back in, rather than snapping to full volume
-          audioEl.play().catch(() => {});
-          fadeVolume(audioEl, themeRestoreVolume, FADE_MS);
-        }
-      }
+    // clearedAudio.play() below is unconditional — it never checks audioEl's
+    // state first. Previously it did (gated behind a `themePlaying` flag
+    // captured once at the top of this function), which is what let the
+    // audio-toggle button silently suppress the chime: toggling ambient
+    // off/on between clears left `audioEl.paused`/`.volume` in a state the
+    // stale snapshot didn't account for, and on some paths the chime never
+    // got called at all. Ducking is now handled entirely by
+    // duckAmbientFor(clearedAudio) (registered once, see the ambient-audio
+    // section below) reacting to clearedAudio's own play/pause/ended events,
+    // so the chime's own playback is never gated on ambient's state.
+    const wasPlaying = !audioEl.paused;
+    function startChime() {
       clearedAudio.currentTime = 0;
-      clearedAudio.addEventListener("ended", resumeTheme, { once: true });
-      clearedAudio.play().catch(resumeTheme);
-      setTimeout(resumeTheme, 8900); // clip is ~8.4s; safety net in case "ended" never fires
+      clearedAudio.play().catch(() => {
+        // playback never actually started, so duckAmbientFor's "play"
+        // listener never fired to pause ambient either — nothing to
+        // release, but restore the volume the pre-fade below silenced.
+        if (audioOn) fadeVolume(audioEl, ambientVolume, 300);
+      });
+      // Cleared.mp3 is ~8.4s; safety net in case "ended" never fires for
+      // some reason — force a real pause, which still goes through the
+      // normal releaseAmbient() path via duckAmbientFor's listener.
+      setTimeout(() => { if (!clearedAudio.paused) clearedAudio.pause(); }, 8900);
     }
-
-    // Fade the ambient track out first, THEN start the chime once it's
-    // actually silent — smooth (not an instant cut), but no window where
-    // both are audible together, unlike a straight volume duck would give.
-    if (themePlaying) fadeVolume(audioEl, 0, FADE_MS, playChime);
-    else playChime();
+    // Fade ambient out first if it's actually playing — purely for
+    // smoothness (not cutting music off mid-note). duckAmbientFor's "play"
+    // listener on clearedAudio hard-pauses ambient regardless the instant
+    // playback starts, so correctness never depends on this fade finishing.
+    if (wasPlaying) fadeVolume(audioEl, 0, 500, startChime);
+    else startChime();
   }
 
   // Ramps an <audio> element's volume from its current value to `target`
@@ -340,13 +425,104 @@
     requestAnimationFrame(step);
   }
 
+  // Custom-built player for cipher audio clips (see renderBriefing's
+  // n.cipher branch) — deliberately not the native <audio controls> UI.
+  // Two reasons: theming a native control consistently across browsers
+  // isn't really achievable (it's not just CSS-unfriendly, each engine's
+  // internal shadow-DOM controls differ), and native controls also expose a
+  // "Download" entry in their overflow menu with no reliable way to strip
+  // just that one option — building the UI ourselves means there's no
+  // native surface for a download option to live on in the first place.
+  // The underlying <audio> element has no `controls` attribute at all, so
+  // by default it renders as nothing (0x0, no browser chrome) — this is
+  // the only UI for it.
+  function buildAudioPlayer(src) {
+    const wrap = document.createElement("div");
+    wrap.className = "audio-player";
+
+    const audio = document.createElement("audio");
+    audio.src = src;
+    audio.preload = "metadata";
+    audio.oncontextmenu = () => false; // belt-and-suspenders: no right-click "Save Audio As" on the element itself
+    duckAmbientFor(audio);
+    wrap.appendChild(audio);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "audio-btn";
+    btn.setAttribute("aria-label", "Play");
+    btn.innerHTML = `
+      <svg class="icon-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5-9-5.5z"/></svg>
+      <svg class="icon-pause" viewBox="0 0 16 16" aria-hidden="true" hidden><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg>`;
+    wrap.appendChild(btn);
+
+    const track = document.createElement("div");
+    track.className = "audio-track";
+    track.tabIndex = 0;
+    track.setAttribute("role", "slider");
+    track.setAttribute("aria-label", "Seek");
+    track.setAttribute("aria-valuemin", "0");
+    track.setAttribute("aria-valuemax", "100");
+    track.setAttribute("aria-valuenow", "0");
+    const fill = document.createElement("div");
+    fill.className = "audio-fill";
+    track.appendChild(fill);
+    wrap.appendChild(track);
+
+    const time = document.createElement("div");
+    time.className = "audio-time";
+    time.textContent = "0:00 / 0:00";
+    wrap.appendChild(time);
+
+    const fmt = s => isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00";
+    function updateTime() {
+      time.textContent = `${fmt(audio.currentTime)} / ${fmt(audio.duration)}`;
+      const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+      fill.style.width = pct + "%";
+      track.setAttribute("aria-valuenow", String(Math.round(pct)));
+    }
+    audio.addEventListener("loadedmetadata", updateTime);
+    audio.addEventListener("timeupdate", updateTime);
+
+    function setPlaying(playing) {
+      btn.querySelector(".icon-play").hidden = playing;
+      btn.querySelector(".icon-pause").hidden = !playing;
+      btn.setAttribute("aria-label", playing ? "Pause" : "Play");
+    }
+    audio.addEventListener("play", () => setPlaying(true));
+    audio.addEventListener("pause", () => setPlaying(false));
+    audio.addEventListener("ended", () => { audio.currentTime = 0; }); // reset to start so replaying is just hitting play again
+
+    btn.addEventListener("click", () => {
+      if (audio.paused) audio.play().catch(() => {});
+      else audio.pause();
+    });
+
+    function seekTo(clientX) {
+      if (!audio.duration) return;
+      const rect = track.getBoundingClientRect();
+      const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+      audio.currentTime = pct * audio.duration;
+    }
+    track.addEventListener("click", e => seekTo(e.clientX));
+    track.addEventListener("keydown", e => {
+      if (!audio.duration) return;
+      if (e.key === "ArrowRight") audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+      else if (e.key === "ArrowLeft") audio.currentTime = Math.max(0, audio.currentTime - 5);
+      else return;
+      e.preventDefault();
+    });
+
+    return wrap;
+  }
+
   function renderBriefing(n) {
     briefingEl.innerHTML = "";
 
     const head = document.createElement("div");
     head.className = "briefing-head";
     head.innerHTML = `<div class="briefing-id">${n.title}</div>
-      <div class="status-pill ${n.status}">${statusLabel(n.status)}</div>`;
+      <div class="status-pill ${n.status}${n.unlocked ? " unlocked" : ""}">${statusLabel(n)}</div>`;
 
     const body = document.createElement("div");
     body.className = "briefing-body";
@@ -355,20 +531,58 @@
     briefingEl.appendChild(head);
     briefingEl.appendChild(body);
 
-    if (n.status === "locked") {
+    // A bonus node's status stays "bonus" whether it's been unlocked or
+    // not (see the NODES comment on b1) — `accessible` is what actually
+    // gates puzzle content, same role `status !== "locked"` plays for the
+    // main chain.
+    const accessible = n.status === "current" || n.status === "cleared" || (n.status === "bonus" && n.unlocked);
+
+    // Cipher payload — only shown once the node is reachable, so locked (or
+    // not-yet-unlocked bonus) nodes don't leak puzzle content, and stays
+    // visible after clearing so a solved node still doubles as a reference.
+    if (n.cipher && accessible) {
+      const cipher = document.createElement("div");
+      cipher.className = "cipher-block";
+      const label = document.createElement("div");
+      label.className = "label";
+      label.textContent = n.cipher.label;
+      cipher.appendChild(label);
+      if (n.cipher.type === "audio") {
+        cipher.appendChild(buildAudioPlayer(n.cipher.src));
+      } else {
+        const pre = document.createElement("pre");
+        pre.className = "cipher-text";
+        pre.textContent = n.cipher.value;
+        cipher.appendChild(pre);
+      }
+      if (n.meta) {
+        const meta = document.createElement("div");
+        meta.className = "cipher-meta";
+        meta.textContent = n.meta;
+        cipher.appendChild(meta);
+      }
+      briefingEl.appendChild(cipher);
+    }
+
+    if (n.status === "locked" || (accessible && n.status === "bonus" && !n.cipher)) {
       const note = document.createElement("div");
       note.className = "briefing-note";
       note.textContent = "PUZZLE BRIEFING: not yet drafted.";
       briefingEl.appendChild(note);
+    } else if (n.status === "bonus" && !n.unlocked) {
+      const note = document.createElement("div");
+      note.className = "briefing-note";
+      note.textContent = "SIGNAL NOT YET ISOLATED — too faint to read from here.";
+      briefingEl.appendChild(note);
     }
 
-    if (n.status === "current") {
+    if (n.status === "current" || (n.status === "bonus" && n.unlocked && n.cipher)) {
       const demo = document.createElement("div");
       demo.className = "flag-demo";
       demo.innerHTML = `
-        <div class="label">Flag Submission — UI preview only</div>
+        <div class="label">Flag Submission</div>
         <div class="flag-row">
-          <input type="text" placeholder="flag{...}" aria-label="Flag input" autocomplete="off" spellcheck="false" />
+          <input type="text" placeholder="type your answer" aria-label="Flag input" autocomplete="off" spellcheck="false" />
           <button type="button">Submit</button>
         </div>
         <div class="flag-msg"></div>`;
@@ -378,7 +592,7 @@
         const val = input.value.trim();
         if (!val) {
           msg.textContent = "// enter something to see this state.";
-        } else if (n.answer && val.toLowerCase() === n.answer.toLowerCase()) {
+        } else if (n.answer && normalizeAnswer(val) === normalizeAnswer(n.answer)) {
           msg.textContent = "// ACCESS GRANTED — segment neutralized.";
           n.submittedAnswer = val; // exactly what was typed (not the canonical n.answer) — read back below once cleared
           clearNode(n.id); // placeholder check only — swap for a real validator later
@@ -418,7 +632,7 @@
     renderBriefing(byId[id]);
   }
 
-  const clearedCount = NODES.filter(n => n.status === "cleared").length;
+  const clearedCount = NODES.filter(n => CHAIN.includes(n.id) && n.status === "cleared").length;
   // CHAIN is already exactly "the main-chain node ids" (see its definition
   // above) — using it here instead of a bonus-flag filter means this counter
   // can't drift out of sync with what CHAIN/clearNode actually consider the
@@ -452,6 +666,19 @@
   const audioState = document.getElementById("audio-state");
   const clearedAudio = document.getElementById("cleared-audio"); // used by celebrateClear() above
   let userToggled = false;
+  // `audioOn` is the live user preference (toggle button + boot autoplay),
+  // kept separate from `audioEl.paused` — which also goes true/false any
+  // time something *ducks* ambient (see below) and isn't safe to read as
+  // "what the user wants." `duckedBy` counts how many clips currently need
+  // ambient silent (normally 0 or 1, but a counter — not a boolean — so
+  // overlapping duckers, e.g. a second clip started before the first's
+  // "ended" fires, can't release ambient early). ambientVolume is the level
+  // to restore to; captured once here rather than re-read off audioEl at
+  // duck-time, so an interrupted fade-in never leaves a lower "restore to"
+  // value baked in for next time.
+  let audioOn = false;
+  let duckedBy = 0;
+  const ambientVolume = audioEl.volume;
 
   function syncAudioLabel() {
     audioState.textContent = audioEl.paused ? "OFF" : "ON";
@@ -460,10 +687,41 @@
   audioEl.addEventListener("play", syncAudioLabel);
   audioEl.addEventListener("pause", syncAudioLabel);
 
+  function holdAmbient() {
+    duckedBy++;
+    audioEl.pause();
+  }
+  function releaseAmbient() {
+    duckedBy = Math.max(0, duckedBy - 1);
+    if (duckedBy === 0 && audioOn) {
+      audioEl.volume = 0; // start silent and fade back in, rather than snapping to full volume
+      audioEl.play().catch(() => {});
+      fadeVolume(audioEl, ambientVolume, 500);
+    }
+  }
+  // Wires any <audio> element so ambient is hard-paused for as long as
+  // `media` is playing, and handed back (faded in) once it stops — whether
+  // that's it finishing on its own or being paused partway. Used for every
+  // puzzle audio clip (see renderBriefing's n.cipher branch) and for the
+  // "cleared" chime, so ambient can never sound under either, and neither
+  // has to coordinate with the audio-toggle button directly: the toggle
+  // only ever updates `audioOn`, and releaseAmbient() reads that live value
+  // rather than a stale snapshot from whenever the clip started.
+  function duckAmbientFor(media) {
+    media.addEventListener("play", holdAmbient);
+    media.addEventListener("pause", releaseAmbient);
+    media.addEventListener("ended", releaseAmbient);
+  }
+  duckAmbientFor(clearedAudio);
+
   audioToggle.addEventListener("click", () => {
     userToggled = true;
-    if (audioEl.paused) audioEl.play().catch(() => {});
-    else audioEl.pause();
+    audioOn = !audioOn;
+    if (audioOn) {
+      if (duckedBy === 0) audioEl.play().catch(() => {}); // if something's actively ducking ambient, let its own release handle resuming once it's done, instead of fighting over play/pause here
+    } else {
+      audioEl.pause();
+    }
   });
 
   // ---------- initialize gate ----------
@@ -486,7 +744,7 @@
     // jump-scroll right as the reveal starts — preventDefault stops it.
     if (e) e.preventDefault();
     mainEl.classList.add("play");
-    if (!userToggled) audioEl.play().catch(() => {});
+    if (!userToggled) { audioOn = true; audioEl.play().catch(() => {}); }
   }
   document.addEventListener("click", initConsole, { once: true });
   document.addEventListener("keydown", initConsole, { once: true });

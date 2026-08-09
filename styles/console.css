@@ -338,6 +338,10 @@
   #skull-art .ball.cleared path { stroke: var(--cleared); }
   #skull-art .ball.current path { stroke: var(--flame); }
   #skull-art .ball.bonus path { stroke: var(--ember-dim); }
+  /* Once unlocked (see clearNode()'s BONUS_ROUTES check in console.js) —
+     one notch brighter, still no pulse (that was removed on request), just
+     enough to read as "there's something here now" against the dim default. */
+  #skull-art .ball.bonus.unlocked path { stroke: var(--ember); }
   /* the bonus-status node (UNKNOWN SIGNAL) keeps its dim ember stroke tint
      above, but no longer flashes — the pulsing glow (both here and on the
      .node hotspot ring below) was requested removed from it specifically,
@@ -615,6 +619,11 @@
   .status-pill.cleared { color: var(--cleared); }
   .status-pill.current { color: var(--flame); }
   .status-pill.bonus { color: var(--ember-dim); }
+  .status-pill.bonus.unlocked { color: var(--ember); }
+  .node.bonus.unlocked { box-shadow: 0 0 8px 2px var(--ember-glow); }
+  .list-item.bonus.unlocked .list-dot { border-color: var(--ember); }
+  .list-item.bonus.unlocked .dot { background: var(--ember); }
+  .list-item.bonus.unlocked .list-status { color: var(--ember); }
 
   .briefing-body {
     font-size: 14px;
@@ -629,6 +638,95 @@
     border-left: 2px solid var(--panel-edge);
     padding-left: 10px;
     line-height: 1.6;
+  }
+
+  /* Puzzle payload block (renderBriefing's n.cipher branch) — same panel
+     treatment as .flag-demo below it so the two read as one continuous
+     briefing card, not competing widgets. */
+  .cipher-block {
+    margin-top: 4px;
+    padding: 14px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 3px;
+  }
+  .cipher-block .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--steel-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .cipher-text {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    color: var(--phosphor);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  /* Custom audio player (buildAudioPlayer() in console.js) — the underlying
+     <audio> has no `controls` attribute, so it renders as nothing on its
+     own; everything visible here is ours. */
+  .audio-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--void);
+    border: 1px solid var(--panel-edge);
+    border-radius: 2px;
+  }
+  .audio-player audio { display: none; }
+  .audio-btn {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    background: var(--signal-dim);
+    border: 1px solid var(--signal);
+    border-radius: 2px;
+    color: var(--phosphor);
+    cursor: pointer;
+  }
+  .audio-btn:hover, .audio-btn:focus-visible { color: var(--signal); }
+  .audio-btn:focus-visible { outline: 1px solid var(--signal); outline-offset: 2px; }
+  .audio-btn svg { width: 14px; height: 14px; fill: currentColor; }
+  .audio-track {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 4px;
+    background: var(--panel-edge);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .audio-track:focus-visible { outline: 1px solid var(--signal); outline-offset: 3px; }
+  .audio-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--signal);
+    border-radius: 2px;
+  }
+  .audio-time {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--steel-dim);
+    white-space: nowrap;
+  }
+
+  .cipher-meta {
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--steel-dim);
+    opacity: 0.7;
   }
 
   .flag-demo {
