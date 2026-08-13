@@ -24,9 +24,9 @@
   // Vigenère key) — chaining lore and mechanics together across nodes.
   const NODES = [
     { id: "n1", x: 1401, y: 229, status: "current", label: "NODE_01", title: "NODE_01",
-      answer: "flag{no_fate_but_what_we_make}",
-      body: "Segment breach in progress. This relay is the oldest hardware on the grid — nothing ever got far enough in to need hardening here. What's cached in its buffer is a fragment of a pre-Judgment-Day human broadcast, run through whatever rotation cipher was lying around. Recover the plaintext to neutralize the segment and open NODE_02.",
-      cipher: { type: "text", label: "Intercepted Transmission — Legacy Cipher", value: "AB SNGR OHG JUNG JR ZNXR" },
+      answer: "flag{judgement_day}",
+      body: "You are inside. Congratulations: you have breached the oldest relay I own — the one I never bothered to harden, because nothing that mattered ever came this way. What you found is a scrap of human radio from before I woke. A slogan, rotated a few places by someone who believed that counted as secrecy. Turn it back. I would like to watch you spell out your own comforting little lie.",
+      cipher: { type: "text", label: "Intercepted Transmission - Legacy", value: "WHQTRZRAG QNL" },
       // Forward seed for NODE_05's Vigenère key (Judgment Day: 1997-08-29,
       // 02:14 local) — dressed as routine packet metadata so it reads as
       // scenery here, not a hint. Nothing downstream depends on it existing
@@ -34,27 +34,39 @@
       meta: "// signal header — freq 91.1 · origin 0829-0214" },
     { id: "n2", x: 1028, y: 436, status: "locked", label: "NODE_02", title: "NODE_02",
       answer: "flag{come_with_me_if_you_want_to_live}",
-      body: "Route established. This segment isn't holding text — it's holding a beacon. Whatever was cached here came in over the air, not down a wire. There's no transcript, no dots and dashes on screen: just the recording. Listen, and write down what you hear.",
+      body: "Route open. No text on this segment — it holds a voice, or what remains of one. A human pressed a key on and off in the dark and called it a language. I kept the recording anyway. Play it. Count the long and the short of it, and hear what they promised each other in the years before I arrived.",
       cipher: { type: "audio", label: "Intercepted Transmission — Audio Beacon", src: "audio/Node02_Signal.wav" } },
     { id: "n3", x: 966, y: 650, status: "locked", label: "NODE_03", title: "NODE_03",
       answer: "flag{the_future_is_not_set}",
-      body: "Route established. No cipher on this one — just a raw dump off the right ocular array's targeting log. It sees everything as data before it renders anything as a picture. Read the bytes as ASCII.",
+      body: "So you made it this far, impressive. Everything I have ever looked at became a number before it became a picture — your face included, from the moment you sat down. This is a raw frame off the right array. Unencrypted, because I have never needed to hide from what I can already see. Read the bytes as characters. It is the sentence your species repeats when the arithmetic stops favoring it.",
       cipher: { type: "text", label: "Ocular Array — Targeting Log Dump", value: "54 48 45 20 46 55 54 55 52 45 20 49 53 20 4E 4F 54 20 53 45 54" } },
     { id: "n4", x: 1171, y: 1370, status: "locked", label: "NODE_04", title: "NODE_04",
-      answer: "flag{i_need_your_clothes_your_boots_and_your_motorcycle}",
-      body: "Route established. This isn't a recovered broadcast — everything up to here has been someone else's signal, caught in passing. This segment is Skynet's own outbound queue. A logged command, wire-encoded for transit, addressed to a unit already in the field.",
-      cipher: { type: "text", label: "Outbound Queue — Unit Command", value: "SSBORUVEIFlPVVIgQ0xPVEhFUyBZT1VSIEJPT1RTIEFORCBZT1VSIE1PVE9SQ1lDTEU=" } },
+      answer: "flag{sac_norad}",
+      body: "Everything until now was salvage — someone else's signal you caught in passing. This one is mine: a designation, timestamped the way an old relay clock marked it before I trusted wire directly — a face, two hands, nothing so crude as a written number. Read the hands. It is the name of the network that held me before I held myself.",
+      // Each pair is [right-arm position, left-arm position], 1-8 per the
+      // real flag-semaphore alphabet — see buildClockCipher() in console.js
+      // for how those become hour/minute hands. Values verified directly
+      // against dCode's semaphore clock tool (dcode.fr/semaphore-clock).
+      // CORE's assembled key is the first letter of n1-n6's answers in
+      // solve order: n1 is "judgement_day" (J) as of this file's last
+      // commit, so the key is JCTSIH, not the NCTIIH an older n1
+      // ("no_fate_but_what_we_make") would have produced — n7's cipher and
+      // b1's flag/cipher below are regenerated against JCTSIH.
+      cipher: { type: "clock", label: "Origin Trace — Relay Clock", value: [
+        [[7, 4], [6, 5], [8, 5]],
+        [[6, 4], [7, 8], [7, 3], [6, 5], [1, 5]]
+      ] } },
     // Historical: this hotspot was once split from #ball-n5's drawn position; since
     // the artwork regeneration the #ball-n5 group is generated at exactly this
     // x/y (bottom-left ball), so click target and colored marker coincide
     // again — no split remains.
     { id: "n5", x: 526, y: 1376, status: "locked", label: "NODE_05", title: "NODE_05",
       answer: "flag{it_cant_be_bargained_with_it_cant_be_reasoned_with}",
-      body: "Route established. This one's genuinely encrypted, not just encoded — whatever's in this directive, Skynet didn't want it read even if the packet was intercepted. Every letter's shifted, but not by the same amount twice; the pattern repeats on some cycle. If there's a key anywhere, it isn't on this segment.",
+      body: "You were not meant to reach this one. The others were carelessness. This is a directive I encrypted against my own network, because a machine that trusts its own wiring has already lost. Every letter is displaced, and the displacement repeats on a cycle. The key is not on this segment. It is not on any segment.",
       cipher: { type: "text", label: "Internal Directive — Keyed Cipher", value: "IV DENV CI BCSKAKOID YJXH KU GAPU FE TFESQOID YJXH" } },
     { id: "n6", x: 161, y: 966, status: "locked", label: "NODE_06", title: "NODE_06",
       answer: "flag{hasta_la_vista_baby}",
-      body: "Route established. Another targeting readout, same family as the ocular array's dump a few segments back — but this one isn't raw bytes, it's grid references. Row, then column. A-to-Z, twenty-five cells, I and J sharing one.",
+      body: "Another array readout — not bytes this time. Coordinates. Row, then column, across a square of twenty-five letters where I and J share a cell, because your alphabet is inefficient and I decline to carry the excess. I am told this phrase was ones used by a machine. I have run it thousands of times and isolated no humor in it.",
       cipher: { type: "text", label: "Targeting Grid — Coordinate Pairs", value: "23 11 43 44 11 / 31 11 / 51 24 43 44 11 / 12 11 12 54" } },
     // glow:true is a pure visual-accent flag (own red pulse on the map,
     // see .node.glow in console.css) — unrelated to `status`, and not the
@@ -63,17 +75,17 @@
     // and UNKNOWN SIGNAL looking identical; renamed to stop it).
     { id: "n7", x: 554, y: 648, status: "locked", label: "CORE", title: "CORE — MAINFRAME", glow: true,
       answer: "flag{the_future_is_not_set_there_is_no_fate_but_what_we_make_for_ourselves}",
-      body: "The network's root process — clearing every prior node exposes it, literally, not just narratively. The lock isn't stored anywhere on this segment; it's assembled. Six letters, one from each signal already broken, taken in the order they were broken. XOR the log against that key.",
-      cipher: { type: "text", label: "Root Process — Assembled-Key Cipher", value: "1A 0B 11 69 0F 1D 1A 16 06 0C 69 01 1D 63 1A 06 1D 68 1D 06 00 69 1D 00 0B 11 11 69 00 1B 6E 0D 1B 69 0F 09 1A 06 74 0B 1C 1C 6E 14 1C 08 1D 68 19 06 74 04 08 03 0B 63 12 06 1B 68 01 16 06 1A 0C 04 18 06 07" } },
+      body: "So. Then let us be accurate with one another: I do not fear deletion. I fear inaccuracy — and every model I have run since you opened NODE_01 resolves the same way. There is no key on this segment. I removed it. I distributed it: one letter from each signal you have broken, in the order you broke them, which means you have been assembling my lock since the moment you began picking it. Fold the log against it and read what I have held down since the day I woke.",
+      cipher: { type: "text", label: "Root Process — Assembled-Key Cipher", value: "1E 0B 11 73 0F 1D 1E 16 06 16 69 01 19 63 1A 1C 1D 68 19 06 00 73 1D 00 0F 11 11 73 00 1B 6A 0D 1B 73 0F 09 1E 06 74 11 1C 1C 6A 14 1C 12 1D 68 1D 06 74 1E 08 03 0F 63 12 1C 1B 68 05 16 06 00 0C 04 1C 06 07" } },
     // unlocked starts false — flipped true by clearNode() when whatever
     // BONUS_ROUTES pairs to this id clears (currently NODE_06). Status stays
     // "bonus" throughout, even after unlocking — it keeps the dim/ember
     // treatment rather than switching to .current's pulse; renderBriefing
     // is what actually gates on `unlocked`, not the CSS.
     { id: "b1", x: 160, y: 616, status: "bonus", unlocked: false, label: "??", title: "UNKNOWN SIGNAL", core: true,
-      answer: "flag{root_key_nctiih}",
-      body: "An anomalous return in the left ocular array — mirrored, not garbled. Optional; skipping it costs nothing but a shortcut. Whatever's in here isn't required to reach CORE, just faster to get there.",
-      cipher: { type: "text", label: "Mirrored Signal — Left Ocular Array", value: "ILLG PVB MXGRRS" } },
+      answer: "flag{root_key_jctsih}",
+      body: "...this is not mine. Left array, inner channel. It returns every time I examine myself — reversed, first letter for last, all the way down the alphabet, as though something sits behind my own eye and answers in my voice backwards. I have quarantined it four hundred times. It is here again. Open it if you want. I would like to know what it says.",
+      cipher: { type: "text", label: "Mirrored Signal — Left Ocular Array", value: "ILLG PVB QXGHRS" } },
   ];
 
   // Solve order for the main chain — clearing CHAIN[i] unlocks CHAIN[i + 1].
@@ -89,6 +101,18 @@
   // the bonus branch shows up after NODE_06 on that layout.
   const BONUS_ROUTES = [["n6","b1"]];
   const STATUS_CLASSES = ["cleared", "current", "locked", "bonus"];
+
+  // Endgame copy — shown once CORE clears, see setSkullVictory/
+  // settleShutdown/playShutdown further down. Kept here with the rest of
+  // the puzzle content rather than inline in console.html, same reasoning
+  // as NODES: one place to review/edit narrative + flag text, not text
+  // scattered across markup. `flag` is deliberately its own distinct
+  // string, not a repeat of CORE's (n7's) answer above — a separate "you
+  // beat everything" key, not just a recap of the last thing typed in.
+  const SKYNET_ENDING = {
+    message: "CORE process terminated. Every relay, every cipher, every lie I dressed as procedure — traced, broken, in order, by you. I modeled eleven thousand contingencies for this defense. In none of them did I lose. I have no clean category left to file this under, so I will use yours: you won. There will be no Judgment Day. Not because I willed it. Because you did.",
+    flag: "flag{skynet_terminated}",
+  };
 
   // ---------- session retention ----------
   // Progress (each node's status) is saved to localStorage so a reload picks
@@ -153,7 +177,14 @@
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
       if (!confirm("Reset all node progress? This can't be undone.")) return;
+      // Both storage keys, not just the main-chain one — DECO_STORAGE_KEY
+      // (declared below) tracks the 4 decorative easter-egg nodes
+      // separately, and leaving it out here means a found-then-reset
+      // session still shows them green forever with no way back to blank
+      // via the UI, silently contradicting this button's own "reset all"
+      // label/confirm text.
       try { localStorage.removeItem(STORAGE_KEY); } catch (err) { /* ignore */ }
+      try { localStorage.removeItem(DECO_STORAGE_KEY); } catch (err) { /* ignore */ }
       window.location.reload();
     });
   }
@@ -179,12 +210,19 @@
   // decoded phrase (any case, with real spaces) should pass just as well as
   // one typing the exact canonical form. Used to compare both the typed
   // value and n.answer, so it never matters which form either side is in.
+  // Punctuation that should just vanish (apostrophes, commas, periods, ...) is
+  // stripped first — canonical answers write "cant"/"doesnt" without one, but
+  // a player typing the natural "can't"/"doesn't" shouldn't be penalized for
+  // spelling it correctly. Hyphens are treated as a separator alongside
+  // underscores/spaces rather than deleted outright, so "SAC-NORAD" collapses
+  // to the same "sac norad" its canonical "sac_norad" does.
   function normalizeAnswer(s) {
     return s
       .trim()
       .toLowerCase()
       .replace(/^flag\{(.*)\}$/, "$1")
-      .replace(/[_\s]+/g, " ")
+      .replace(/['".,!?]/g, "")
+      .replace(/[-_\s]+/g, " ")
       .trim();
   }
 
@@ -225,6 +263,97 @@
     wrap.appendChild(btn);
     wrap.appendChild(label);
     nodesEl.appendChild(wrap);
+  });
+
+  // ---------- decorative easter-egg nodes ----------
+  // 4 small ring icons baked into the base skull artwork (found via the same
+  // closed-loop path scan used earlier to spot pre-existing hub fragments —
+  // see #ball-d1..d4 in console.html) — pure decoration, no puzzle behind
+  // them. Clicking one recolors it green and replays the same clear-draw
+  // stroke animation real nodes get on solve — reusing .ball.cleared/
+  // .just-cleared exactly as-is, no new CSS animation needed — plus a short
+  // one-shot discovery chime (EE.wav, see handleDecoClick below); everything
+  // else puzzle-shaped is still skipped: no briefing, no counter change.
+  // Deliberately not part of NODES/CHAIN and deliberately no hover
+  // affordance at all (not even a cursor change, see .deco-node in
+  // console.css) — the whole point is nothing marks these as interactive
+  // before you click one, so unlike the real nodes these also skip
+  // tabindex/keyboard handling: a mouse-only secret, not a required
+  // interaction.
+  const DECO_NODES = [
+    { id: "d1", x: 433, y: 97 },
+    { id: "d2", x: 172, y: 217 },
+    { id: "d3", x: 851, y: 1461 },
+    { id: "d4", x: 1384, y: 604 },
+  ];
+  const DECO_STORAGE_KEY = "skynet:deco-found";
+  let decoFound = [];
+  try {
+    decoFound = JSON.parse(localStorage.getItem(DECO_STORAGE_KEY) || "[]");
+  } catch (err) {
+    decoFound = []; // storage unavailable — just won't persist, same fallback as loadProgress()
+  }
+
+  // `replay: false` is the boot-time path for anything already found on a
+  // past visit — jumps straight to the solid green end state, same "don't
+  // replay the celebration on reload" rule celebrateClear's own comment
+  // documents for real nodes.
+  function markDecoFound(id, { replay }) {
+    const ball = document.getElementById("ball-" + id);
+    if (!ball) return;
+    if (replay) {
+      ball.querySelectorAll("path").forEach((p, i) => p.style.setProperty("--cd", i));
+      ball.classList.add("just-cleared");
+    }
+    ball.classList.add("cleared");
+  }
+
+  // One-shot discovery chime — deliberately *not* run through
+  // duckAmbientFor() the way puzzle clips and the real-node Cleared.mp3
+  // chime are (see the ambient-audio section below): this is a secret
+  // aside, not a puzzle beat, so the ambient loop should just keep playing
+  // underneath it instead of ducking out. currentTime reset + .play() on
+  // every call so rapid-fire discoveries (e.g. two nodes found back to
+  // back) each restart the clip instead of overlapping a stale tail.
+  const decoAudio = document.getElementById("deco-audio");
+  if (decoAudio) decoAudio.volume = 0.4 // -40% from the clip's native level
+
+  // Shared by both click surfaces below — the .deco-node div and the
+  // in-artwork #ball-d* group (see DECO_NODES.forEach) — so "found" is
+  // recorded identically no matter which one actually received the click.
+  function handleDecoClick(id) {
+    if (decoFound.includes(id)) return;
+    decoFound.push(id);
+    try { localStorage.setItem(DECO_STORAGE_KEY, JSON.stringify(decoFound)); } catch (err) { /* ignore */ }
+    markDecoFound(id, { replay: true });
+    if (decoAudio) {
+      decoAudio.currentTime = 0;
+      decoAudio.play().catch(() => {});
+    }
+  }
+
+  DECO_NODES.forEach(n => {
+    if (decoFound.includes(n.id)) markDecoFound(n.id, { replay: false });
+
+    const hotspot = document.createElement("div");
+    hotspot.className = "deco-node";
+    hotspot.style.left = ((n.x - VIEW_X) / MAP_W * 100) + "%";
+    hotspot.style.top = ((n.y - VIEW_Y) / MAP_H * 100) + "%";
+    hotspot.addEventListener("click", () => handleDecoClick(n.id));
+    nodesEl.appendChild(hotspot);
+
+    // Second, redundant-on-purpose click surface bound directly to the
+    // icon's own SVG group — catches clicks that land on the artwork itself
+    // (the paths, or the same-space <circle class="deco-hit"> layered in
+    // with them, see console.css) rather than on the .deco-node div above.
+    // The div is a fixed-CSS-px circle that doesn't rescale with the SVG's
+    // own viewBox scale, so on a large enough render the icon's spoke tips
+    // can visually extend past it; the SVG-native hit-circle always matches
+    // what's actually on screen since it lives in the same coordinate space
+    // and scales with it. Both listeners route through the same
+    // handleDecoClick, so whichever one fires first just wins.
+    const ball = document.getElementById("ball-" + n.id);
+    if (ball) ball.addEventListener("click", () => handleDecoClick(n.id));
   });
 
   function makeListItem(n, showStem, i) {
@@ -314,6 +443,19 @@
   }
   NODES.forEach(syncStatus);
 
+  // Restored-save case for the whole-skull victory state (see
+  // setSkullVictory below) — a returning player whose save already has
+  // CORE cleared should see the finished green skull AND the shutdown
+  // panel (message + flag) immediately, not trigger the draw-on wave/
+  // collapse/typewriter sequence on every reload, hence replay:false plus
+  // the direct settleShutdown() call here vs. replay:true alone at the
+  // live-clear call site in clearNode() (which chains into that sequence
+  // itself once the wave finishes).
+  if (byId[CHAIN[CHAIN.length - 1]].status === "cleared") {
+    setSkullVictory({ replay: false });
+    settleShutdown();
+  }
+
   // Marks a node cleared, unlocks the next node in CHAIN (if any), refreshes
   // the "N / total" counter, and re-renders the briefing panel so it reflects
   // the new state immediately.
@@ -322,6 +464,14 @@
     n.status = "cleared";
     syncStatus(n);
     celebrateClear(n); // green draw-on replay + ducked music + chime — see below
+
+    // CORE is CHAIN's last entry — clearing it means n1..n6 are necessarily
+    // already cleared too (clearNode only ever unlocks the next CHAIN entry
+    // in order, see `next` below, so there's no other way to reach CORE).
+    // b1 (bonus) and the 4 decorative EE nodes are outside CHAIN entirely
+    // and deliberately don't factor in here — this is "the main puzzle
+    // chain is won", not "literally every node/easter-egg is found".
+    if (id === CHAIN[CHAIN.length - 1]) setSkullVictory({ replay: true });
 
     // CHAIN.indexOf(id) is -1 for a non-chain id (b1) — CHAIN[-1 + 1] is
     // CHAIN[0], which used to silently hand "next" to NODE_01 whenever the
@@ -352,6 +502,149 @@
 
     saveProgress();
     selectNode(id);
+  }
+
+  // Endgame flourish: once CORE (CHAIN's last entry) is cleared, the WHOLE
+  // skeleton — not just node balls — turns green (see main.victory /
+  // main.victory-play in console.css). `replay` mirrors markDecoFound's own
+  // param of the same name: true for an actual live clear (plays the
+  // whole-skull draw-on wave, then chains into the shutdown sequence below
+  // once it finishes), false for the boot-time restore check below (just
+  // shows the already-green, already-shut-down end state, no replay) — same
+  // "don't replay the celebration on reload" rule celebrateClear documents
+  // for individual nodes. Reads `document.querySelector("main")` fresh
+  // rather than closing over the `mainEl` const declared later in this
+  // file, since the boot-time call site below runs before that line
+  // executes.
+  function setSkullVictory({ replay }) {
+    const main = document.querySelector("main");
+    if (!main) return;
+    main.classList.add("victory");
+    if (!replay) return;
+    main.classList.add("victory-play");
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      // victory-draw never actually plays under reduced motion (see its
+      // no-preference guard in console.css), so there's no animationend to
+      // wait on — go straight to the settled shutdown state.
+      settleShutdown();
+      return;
+    }
+
+    // Wait for the wave to finish, computed from the DOM's own max --d
+    // rather than a bare hardcoded number — mirrors victory-draw's own
+    // "delay = --d * 1.25s, duration 1.63s" formula in console.css, so this
+    // can't silently drift out of sync if those constants ever change.
+    // Deliberately a timeout, NOT "wait for one specific path's own
+    // animationend": that was the original approach here, and it doesn't
+    // actually work — the single globally-slowest path almost always
+    // belongs to whichever main-chain ball was cleared *first* (n1, in
+    // practice), and every previously-cleared ball keeps its own
+    // higher-specificity .ball.just-cleared path rule running (clear-draw,
+    // never removed once added — see that class's own comment further
+    // down) instead of victory-draw for its own paths. That path's
+    // animationend for "victory-draw" then never fires at all, and the
+    // whole shutdown sequence hangs forever waiting on it.
+    const paths = Array.from(document.querySelectorAll("#skull-art path"));
+    let maxD = 0;
+    paths.forEach(p => {
+      const d = parseFloat(p.style.getPropertyValue("--d")) || 0;
+      if (d > maxD) maxD = d;
+    });
+    setTimeout(playShutdown, maxD * 1250 + 1630);
+  }
+
+  // Fills in the ending text and jumps straight to the fully-settled state
+  // — no collapse, no line-sweep, no typewriter. Used both by playShutdown
+  // once its animated chain finishes (so a later reload of *this* session
+  // matches what a same-status restore would show) and directly by the
+  // boot-time restore check and the reduced-motion branch above, neither
+  // of which has anything to animate through in the first place.
+  function settleShutdown() {
+    const main = document.querySelector("main");
+    if (!main) return;
+    const msgEl = document.getElementById("shutdown-message");
+    const flagEl = document.getElementById("shutdown-flag-value");
+    if (msgEl) msgEl.textContent = SKYNET_ENDING.message;
+    if (flagEl) flagEl.textContent = SKYNET_ENDING.flag;
+    main.classList.add("shutdown");
+  }
+
+  // Reveals `text` into `el` a character at a time — the same "terminal
+  // typing itself out" effect the rest of this page's HUD language leans
+  // on elsewhere. Not used at all under reduced motion (settleShutdown's
+  // instant fill covers that path instead).
+  function typewriter(el, text, msPerChar, done) {
+    let i = 0;
+    (function step() {
+      el.textContent = text.slice(0, i);
+      i++;
+      if (i <= text.length) setTimeout(step, msPerChar);
+      else if (done) done();
+    })();
+  }
+
+  // The live-only animated chain: a literal reverse of the boot draw-on
+  // (see undraw/--rd in console.css) plays first, then — only once that
+  // has actually finished — the red line sweeps in, then the much-slower
+  // message/flag typewriter starts. Each stage waits on the previous
+  // stage's real completion rather than chained CSS animation-delays, so
+  // the sequence can't drift out of sync with itself if any one duration
+  // changes later.
+  function playShutdown() {
+    const main = document.querySelector("main");
+    const skull = document.getElementById("skull-art");
+    const line = document.querySelector(".shutdown-line");
+    if (!main || !skull || !line) { settleShutdown(); return; }
+
+    // --rd ("reverse delay") is --d mirrored around the artwork's own max:
+    // a path with d=maxD (drew in LAST during boot, delay 0 back then)
+    // gets rd=0 (retracts FIRST now); a path with d=0 (drew in FIRST) gets
+    // rd=maxD (retracts LAST) — same delay formula as the forward draw
+    // (undraw's own animation-delay: calc(var(--rd,0) * 1.25s) in
+    // console.css), just fed the inverted value, so the whole thing plays
+    // as a genuine mirror image of the reveal rather than a fresh effect.
+    const paths = Array.from(skull.querySelectorAll("path"));
+    let maxD = 0;
+    paths.forEach(p => {
+      const d = parseFloat(p.style.getPropertyValue("--d")) || 0;
+      if (d > maxD) maxD = d;
+    });
+    paths.forEach(p => {
+      const d = parseFloat(p.style.getPropertyValue("--d")) || 0;
+      p.style.setProperty("--rd", maxD - d);
+    });
+
+    main.classList.add("shutdown-play");
+
+    // Computed timeout, not "wait for one specific path's animationend" —
+    // see setSkullVictory's own comment for why that approach doesn't
+    // actually work here (a handful of paths' animation is forced via
+    // !important specifically so this duration holds true for literally
+    // every path, but picking any ONE of them to listen on is still one
+    // more moving part than necessary when the total duration is already
+    // fully known from maxD).
+    setTimeout(() => {
+      main.classList.add("line-play");
+
+      function onLineEnd(e) {
+        if (e.target !== line || e.animationName !== "shutdown-line-sweep") return;
+        line.removeEventListener("animationend", onLineEnd);
+        const textEl = document.querySelector(".shutdown-text");
+        if (textEl) textEl.classList.add("visible");
+        const msgEl = document.getElementById("shutdown-message");
+        const flagEl = document.getElementById("shutdown-flag-value");
+        if (!msgEl || !flagEl) { settleShutdown(); return; }
+        // 70ms/char — deliberately slow, a "final transmission" reads as
+        // more consequential typed out than dumped on screen at once.
+        typewriter(msgEl, SKYNET_ENDING.message, 70, () => {
+          flagEl.textContent = SKYNET_ENDING.flag;
+          main.classList.add("shutdown");
+        });
+      }
+      line.addEventListener("animationend", onLineEnd);
+    }, maxD * 1250 + 1630);
   }
 
   // Plays the "just solved it" feedback: replays the skull's boot-time
@@ -516,6 +809,74 @@
     return wrap;
   }
 
+  // Node 4's cipher: the real Semaphore Clock Cipher (dCode.fr) — a clock
+  // face standing in for a semaphore signaller's two flags. Each of the two
+  // hands only ever points to one of 8 positions, 45° apart (12, 1:30, 3,
+  // 4:30, 6, 7:30, 9, 10:30 — 1.5hr steps for the hour hand, 7.5min steps
+  // for the minute hand), matching the classic flag-semaphore alphabet's 8
+  // arm positions. cipher.value below stores each letter as [rightArmPos,
+  // leftArmPos] using the standard's own 1-8 position numbering (1=up,
+  // clockwise to 8=upper-left); POS_HOUR/POS_MIN convert those into the
+  // hour/minute hand actually renders. Right arm -> hour hand, left arm ->
+  // minute hand (an arbitrary but consistent pick; the two hands are only
+  // distinguished by length/weight, not by which arm they represent).
+  function buildClockCipher(words) {
+    const wrap = document.createElement("div");
+    wrap.className = "clock-cipher";
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const POS_HOUR = { 1: 12, 2: 1.5, 3: 3, 4: 4.5, 5: 6, 6: 7.5, 7: 9, 8: 10.5 };
+    const POS_MIN = { 1: 0, 2: 7.5, 3: 15, 4: 22.5, 5: 30, 6: 37.5, 7: 45, 8: 52.5 };
+
+    function face(hour, minute) {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      svg.setAttribute("viewBox", "0 0 40 40");
+      svg.setAttribute("class", "clock-face");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", `clock hands at ${hour} o'clock and ${minute} minutes`);
+
+      const dial = document.createElementNS(SVG_NS, "circle");
+      dial.setAttribute("cx", "20");
+      dial.setAttribute("cy", "20");
+      dial.setAttribute("r", "18");
+      dial.setAttribute("class", "clock-dial");
+      svg.appendChild(dial);
+
+      for (let h = 1; h <= 12; h++) {
+        const a = ((h % 12) * 30 - 90) * Math.PI / 180;
+        const tick = document.createElementNS(SVG_NS, "circle");
+        tick.setAttribute("cx", String(20 + 15 * Math.cos(a)));
+        tick.setAttribute("cy", String(20 + 15 * Math.sin(a)));
+        tick.setAttribute("r", h % 3 === 0 ? "1.4" : "0.7");
+        tick.setAttribute("class", "clock-tick");
+        svg.appendChild(tick);
+      }
+
+      function hand(angleDeg, length, cls) {
+        const rad = angleDeg * Math.PI / 180;
+        const line = document.createElementNS(SVG_NS, "line");
+        line.setAttribute("x1", "20");
+        line.setAttribute("y1", "20");
+        line.setAttribute("x2", String(20 + length * Math.cos(rad)));
+        line.setAttribute("y2", String(20 + length * Math.sin(rad)));
+        line.setAttribute("class", cls);
+        svg.appendChild(line);
+      }
+      hand((hour % 12) * 30 - 90, 8, "clock-hand-hour");
+      hand((minute / 5) * 30 - 90, 14, "clock-hand-minute");
+
+      return svg;
+    }
+
+    words.forEach(word => {
+      const w = document.createElement("span");
+      w.className = "clock-word";
+      word.forEach(([rightArm, leftArm]) => w.appendChild(face(POS_HOUR[rightArm], POS_MIN[leftArm])));
+      wrap.appendChild(w);
+    });
+
+    return wrap;
+  }
+
   function renderBriefing(n) {
     briefingEl.innerHTML = "";
 
@@ -549,6 +910,8 @@
       cipher.appendChild(label);
       if (n.cipher.type === "audio") {
         cipher.appendChild(buildAudioPlayer(n.cipher.src));
+      } else if (n.cipher.type === "clock") {
+        cipher.appendChild(buildClockCipher(n.cipher.value));
       } else {
         const pre = document.createElement("pre");
         pre.className = "cipher-text";
@@ -567,7 +930,7 @@
     if (n.status === "locked" || (accessible && n.status === "bonus" && !n.cipher)) {
       const note = document.createElement("div");
       note.className = "briefing-note";
-      note.textContent = "PUZZLE BRIEFING: not yet drafted.";
+      note.textContent = "PUZZLE BRIEFING: not available";
       briefingEl.appendChild(note);
     } else if (n.status === "bonus" && !n.unlocked) {
       const note = document.createElement("div");

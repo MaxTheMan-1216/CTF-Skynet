@@ -418,6 +418,243 @@
   }
   @keyframes draw { to { stroke-dashoffset: 0; } }
 
+  /* Endgame: the moment CORE (n7, CHAIN's last entry) is cleared, the WHOLE
+     skeleton — every path in #skull-art, not just node balls — turns green,
+     the same way .ball.cleared already does per-node but scaled to the
+     entire artwork. main.victory (added by setSkullVictory() in console.js)
+     is the static, always-on half: !important because it has to beat every
+     per-status stroke color above unconditionally (.ball.bonus.unlocked
+     path alone already out-specificities a plain "main.victory #skull-art
+     path" rule with its 3 classes vs. this rule's 1 — chasing that with
+     ever-more-specific selectors doesn't scale, this is the deliberate
+     "nothing overrides this" case !important exists for). It's added both
+     on a live CORE clear and from the boot-time restore check (a returning
+     player whose save already has CORE cleared), so it alone carries no
+     animation — see main.victory-play just below for that half. */
+  main.victory #skull-art path { stroke: var(--cleared) !important; }
+
+  /* Animated half — added only on an actual live CORE clear (never on a
+     boot restore, see setSkullVictory()'s replay param), so a returning
+     player who already beat the game just sees the finished green skull
+     instantly instead of this replaying every reload — same "don't replay
+     the celebration on reload" rule celebrateClear and markDecoFound both
+     already follow for their own scopes. Reuses the exact draw-on technique
+     above (stroke-dashoffset + each path's own baked-in --d delay), so the
+     whole-skull wave follows the identical order/rhythm the boot reveal
+     did, just recolored and re-triggered. A fresh keyframe name
+     (victory-draw, not draw) is required, not cosmetic: see the
+     .just-cleared comment further up for why reusing an @keyframes name a
+     path already finished an animation under doesn't reliably restart it. */
+  @media (prefers-reduced-motion: no-preference) {
+    main.victory-play #skull-art path {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: victory-draw 1.63s cubic-bezier(.4, 0, .2, 1) forwards;
+      animation-delay: calc(var(--d, 0) * 1.25s);
+    }
+  }
+  @keyframes victory-draw { to { stroke-dashoffset: 0; } }
+
+  /* CORE's hotspot pulses via .node.glow — a static flag on n7 (see NODES
+     in console.js), independent of status, so it never stops on its own
+     even after the node is cleared. Once the whole run is won it shouldn't
+     keep reading as "something needs your attention". 3 classes here
+     (main + node + glow) already out-specificities the base 2-class
+     ".node.glow" pulse rule further down without needing !important. */
+  main.victory .node.glow {
+    animation: none;
+    box-shadow: none;
+  }
+  /* b1's hotspot separately carries its own *static* (non-pulsing) glow
+     while unlocked-but-unsolved — .node.bonus.unlocked further down, not a
+     .glow variant, easy to miss when hunting for "pulse" rules specifically
+     (found the hard way). b1's own status never changes just because CORE
+     did — it only flips once the player actually solves it — so without
+     this override that glow would keep showing indefinitely after victory
+     too. 4 classes here beats that rule's 3 without !important. */
+  main.victory .node.bonus.unlocked {
+    box-shadow: none;
+  }
+  /* The periodic .map glitch burst (skull-glitch/skull-glitch-roll, see
+     main.play .map / .map::after further up) is a 15s-interval ambient
+     effect that runs for as long as main.play is set — which, like every
+     other .play-gated animation, is forever once added. Same "stop reading
+     as ambient/alive once the run is won" reasoning as the CORE pulse and
+     bonus glow above; tie only, no !important needed — main.play .map and
+     main.victory .map share the identical specificity shape (tag+class,
+     class), so placing this after main.play's own rule in source order is
+     enough to win outright. */
+  main.victory .map,
+  main.victory .map::after {
+    animation: none;
+  }
+
+  /* ---------- endgame shutdown: reverse draw-on + red-line reveal ---------- */
+  /* Begins only once the whole-skull green wave above has fully finished
+     (see the computed setTimeout in setSkullVictory, console.js) — must
+     read as "the wave finished, THEN it powers down", never overlapping
+     it. main.shutdown-play is added by JS at exactly that instant, at the
+     same time playShutdown() stamps a fresh --rd ("reverse delay") custom
+     property onto every path — see its own comment there for the formula.
+     This is a literal reverse of the boot draw-on reveal (see "draw"
+     above): same per-path duration/stagger shape, just driven by --rd
+     instead of --d and animating stroke-dashoffset 0 -> 1 (retract)
+     instead of 1 -> 0 (reveal), so paths that drew in LAST are the FIRST
+     to retract and vice versa — a true mirror, not just "fade it out".
+     !important on both properties for the same reason main.victory's
+     stroke override above needs it: .ball.just-cleared path (2 classes,
+     see its own comment further up — never removed once a node is
+     cleared) otherwise out-specificities a plain "main.shutdown-play
+     #skull-art path" rule and would keep running ITS OWN animation
+     instead, leaving every already-cleared node's own icon stuck fully
+     drawn while everything else retracts around it.
+     `both` fill-mode (not `forwards`) and the explicit `from` below are
+     both load-bearing, not style: the moment this rule takes over, every
+     path's animation-name switches away from whatever it was (victory-draw,
+     or clear-draw for already-solved balls) to undraw — which immediately
+     discards that OLD animation's forwards-held "fully drawn" state, full
+     stop, that's just how animation-name works. With only `forwards` and no
+     explicit 0%, there's nothing holding the path fully-drawn during ITS
+     OWN delay (--rd can be over 2s), so it falls back to the plain
+     stroke-dashoffset:1 the base rule below already declares — which is
+     already undraw's *target* value. Every path in the artwork was ending
+     up already-invisible before its own retraction animation ever started,
+     so the whole thing looked like one instant cut, not a staggered
+     retraction. `both` makes it hold the explicit `from` (still fully
+     drawn) for the entire delay instead, so each path only actually
+     retracts once its own --rd-based delay elapses. */
+  @media (prefers-reduced-motion: no-preference) {
+    main.shutdown-play #skull-art path {
+      animation: undraw 1.63s cubic-bezier(.4, 0, .2, 1) both !important;
+      animation-delay: calc(var(--rd, 0) * 1.25s) !important;
+    }
+  }
+  @keyframes undraw {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: 1; }
+  }
+
+  /* #nodes (the label/hotspot div layer) has no strokes to retract — it
+     just fades, starting at the same instant as the reverse-draw above so
+     labels don't linger over an already-vanished ball. Same treatment for
+     #briefing (the right-hand "which node am I on" panel) and .list-view
+     (its mobile equivalent) — the user's progress through the puzzle stops
+     being relevant the moment the ending starts, and clearing it is what
+     hands the ending text the full width of <main> to center in, not just
+     .map-wrap's column. */
+  main.shutdown #skull-art,
+  main.shutdown #nodes,
+  main.shutdown-play #nodes,
+  main.shutdown #briefing,
+  main.shutdown-play #briefing,
+  main.shutdown .list-view,
+  main.shutdown-play .list-view {
+    opacity: 0;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    main.shutdown-play #nodes,
+    main.shutdown-play #briefing,
+    main.shutdown-play .list-view {
+      transition: opacity 900ms ease;
+    }
+  }
+  /* .map-wrap's border-right (base rule further up) exists to separate the
+     map column from #briefing's column — once both are gone above, it's a
+     gray line separating nothing from nothing, left visibly stranded
+     against the ending panel. Fades out alongside the rest rather than
+     just vanishing instantly, same reasoning/duration as the opacity fades
+     above. transparent, not removing the border outright — width:1px stays
+     put either way, changing the property CSS actually transitions on
+     (color) is what animates smoothly; deleting border-right entirely would
+     just snap. */
+  main.shutdown .map-wrap,
+  main.shutdown-play .map-wrap {
+    border-right-color: transparent;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    main.shutdown-play .map-wrap {
+      transition: border-right-color 900ms ease;
+    }
+  }
+  /* main.shutdown alone (boot restore / reduced-motion live path, neither
+     of which has the per-path animation above to rely on) needs #skull-art
+     itself hidden directly — the live path gets there naturally once every
+     path has retracted to an invisible zero-length stroke, this is just
+     the equivalent instant end state for the other two. */
+  main.shutdown #skull-art { opacity: 0; }
+
+  /* Panel now spans the whole of <main> (see its new position as a direct
+     main child in console.html, not nested in .map anymore) — once
+     #skull-art/#nodes/#briefing/.list-view are all gone above, this has the
+     full width to center in rather than just .map-wrap's column.
+     pointer-events:none since nothing in here is interactive, it's a
+     read-only closing message. */
+  .shutdown-panel {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 40px;
+    text-align: center;
+    pointer-events: none;
+  }
+  main.shutdown .shutdown-panel,
+  main.shutdown-play .shutdown-panel {
+    display: flex;
+  }
+
+  .shutdown-line {
+    width: 0;
+    height: 2px;
+    background: var(--signal);
+    box-shadow: 0 0 12px var(--signal-glow);
+  }
+  /* Restore / reduced-motion: already fully drawn, no sweep-in. */
+  main.shutdown .shutdown-line { width: 60%; }
+  @media (prefers-reduced-motion: no-preference) {
+    /* main.line-play, not main.shutdown-play — added by playShutdown()
+       once the reverse-draw above has actually finished (a computed
+       timeout, same reasoning as the wave-wait in setSkullVictory: no
+       single path is safe to bet an animationend listener on here either),
+       so the line only starts sweeping in once the skull has fully
+       retracted rather than overlapping it. */
+    main.line-play .shutdown-line {
+      animation: shutdown-line-sweep 700ms ease-out forwards;
+    }
+  }
+  @keyframes shutdown-line-sweep { to { width: 60%; } }
+
+  .shutdown-text {
+    font-family: var(--font-mono);
+    color: var(--signal);
+    max-width: 62ch;
+    opacity: 0;
+    transition: opacity 500ms ease;
+  }
+  /* Restore / reduced-motion: settleShutdown() (console.js) fills the text
+     in and shows it instantly, no fade needed. Live path fades in via
+     .visible, added once the line-sweep above actually finishes — right
+     as the JS typewriter starts populating shutdown-message. */
+  main.shutdown .shutdown-text,
+  .shutdown-text.visible {
+    opacity: 1;
+  }
+
+  /* Sized up from the original .map-confined version now that this panel
+     has the whole of <main> to breathe in instead of one grid column. */
+  .shutdown-message { margin: 0 0 1.2em; line-height: 1.6; font-size: 1.5rem; }
+  .shutdown-flag {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+    color: var(--steel);
+  }
+  #shutdown-flag-value { color: var(--cleared); }
+
   /* hotspots: transparent circular hit-targets sitting over the artwork balls;
      status is drawn by the ball strokes themselves, the hotspot only carries
      interaction (hover brackets, focus, pulse) */
@@ -470,6 +707,38 @@
       100% 100%, 78% 100%, 78% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 100% 100%,
       100% 0, 78% 0, 78% 2px, calc(100% - 2px) 2px, calc(100% - 2px) 22%, 100% 22%
     );
+  }
+
+  /* Decorative easter-egg hotspots (DECO_NODES in console.js) — sized/
+     positioned like .node but with none of its interactive tells: no hover
+     bracket, no focus outline, no pulse, no label underneath, and (unlike
+     .node) no cursor:pointer either — hovering must feel identical to
+     hovering blank artwork, or the cursor itself gives the hotspot's bounds
+     away before a click ever happens. Just an invisible circle over a ring
+     icon that already blends into the rest of the skull linework (#skull-art
+     .ball with no status class carries no styling beyond the plain path
+     rule above) until .cleared/.just-cleared get added on click. */
+  .deco-node {
+    position: absolute;
+    width: clamp(36px, 7cqw, 56px);
+    height: clamp(36px, 7cqw, 56px);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+  }
+
+  /* Paired with the <circle class="deco-hit"> added inside each #ball-d*
+     group in console.html — a second, SVG-native hit target sitting in the
+     artwork's own raw coordinate space, so it scales 1:1 with the rendered
+     icon at any viewport. .deco-node above is a fixed-CSS-px div; on a large
+     enough render the icon's spoke tips can visually outgrow it, so clicks
+     that land on the actual drawn linework miss while clicks nearer dead
+     center (still inside the small div) land — this circle closes that gap
+     by always covering exactly what's on screen. fill:transparent (not
+     none) is the load-bearing part: `none` opts a shape out of pointer
+     events entirely under the default visiblePainted behavior, transparent
+     keeps it hit-testable while staying invisible. */
+  .deco-hit {
+    fill: transparent;
   }
 
   .node-label {
@@ -720,6 +989,26 @@
     color: var(--steel-dim);
     white-space: nowrap;
   }
+
+  /* Node 4's cipher (buildClockCipher() in console.js) — each letter is a
+     small analog clock face; hour + minute hands give the same two-part
+     coordinate node 6's grid pairs do. .clock-word groups keep each word's
+     faces together and the gap between groups (not a drawn divider) is what
+     reads as the word break. */
+  .clock-cipher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+  .clock-word {
+    display: flex;
+    gap: 4px;
+  }
+  .clock-face { width: 32px; height: 32px; flex: none; }
+  .clock-dial { fill: var(--void); stroke: var(--panel-edge); stroke-width: 1.5; }
+  .clock-tick { fill: var(--steel-dim); }
+  .clock-hand-hour { stroke: var(--phosphor); stroke-width: 2.2; stroke-linecap: round; }
+  .clock-hand-minute { stroke: var(--signal); stroke-width: 1.4; stroke-linecap: round; }
 
   .cipher-meta {
     margin-top: 8px;
