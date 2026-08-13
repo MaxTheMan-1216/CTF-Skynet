@@ -207,6 +207,55 @@
   .map-wrap::-webkit-scrollbar { height: 8px; }
   .map-wrap::-webkit-scrollbar-thumb { background: var(--panel-edge); }
 
+  /* ---------- endgame, part 1: right panel exits, skull re-centers ---------- */
+  /* Added the instant CORE's flag is confirmed correct (see clearNode in
+     console.js) — deliberately independent of the chime/wave/shutdown wait
+     chain further down, which can take 8+ seconds; the right side leaving
+     shouldn't wait on any of that. #briefing and .list-view (mobile) are
+     "which node am I on" — irrelevant the moment the run is won. Hiding
+     them is also what makes the skull's re-center (below) make sense: with
+     main's grid still reserving min(340px,32vw) for a now-invisible right
+     column, .map-wrap staying put would just look stranded off-center. */
+  main.core-cleared #briefing,
+  main.core-cleared .list-view {
+    opacity: 0;
+    pointer-events: none;
+  }
+  main.core-cleared .map-wrap {
+    border-right-color: transparent;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    main.core-cleared #briefing,
+    main.core-cleared .list-view {
+      transition: opacity 900ms ease;
+    }
+    main.core-cleared .map-wrap {
+      transition: border-right-color 900ms ease;
+    }
+  }
+
+  /* Moves .map-wrap into the space the right column used to reserve —
+     translateX by HALF of min(340px,32vw) shifts it from "centered within
+     just the 1fr left track" to "centered within main's full width"
+     (main has no column-gap, so leftWidth + rightWidth = main's full
+     width, and the shift needed to re-center across that sum is exactly
+     half of whatever was freed up). Triggered by JS (clearNode) once
+     CORE's own clear-draw animation AND the panel fade above have both
+     actually finished — see NODE_CLEAR_MS/PANEL_FADE_MS there.
+     main.recentered alone is the static target (also what a boot-time
+     restore lands on directly, no transition needed); main.recenter-play
+     is the live-only companion that adds the transition, same
+     static/animated split used throughout this file (e.g. main.victory /
+     main.victory-play above). */
+  main.recentered .map-wrap {
+    transform: translateX(calc(min(340px, 32vw) / 2));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    main.recenter-play .map-wrap {
+      transition: transform 800ms cubic-bezier(.4, 0, .2, 1);
+    }
+  }
+
   .map {
     position: relative;
     width: 100%;
@@ -300,6 +349,15 @@
        the layout stacks to one column and can scroll, so below this width
        it's a viewport-width cap instead. */
     .map { max-width: min(97.5vw, 700px); } /* same 25% bump as the desktop cap above */
+
+    /* Single-column layout below this width (see main's own 760px override
+       further up) — .map-wrap already spans the full available width
+       itself, so the desktop-only re-center shift (main.recentered
+       .map-wrap above) has nothing to center against and would just push
+       it uselessly off-screen instead. Same specificity as that base rule,
+       so this has to come after it in source order to win, same as
+       everything else in this block. */
+    main.recentered .map-wrap { transform: none; }
   }
 
   .map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -489,7 +547,7 @@
     animation: none;
   }
 
-  /* ---------- endgame shutdown: reverse draw-on + red-line reveal ---------- */
+  /* ---------- endgame shutdown: reverse draw-on + closing transmission ---------- */
   /* Begins only once the whole-skull green wave above has fully finished
      (see the computed setTimeout in setSkullVictory, console.js) — must
      read as "the wave finished, THEN it powers down", never overlapping
@@ -607,27 +665,6 @@
     display: flex;
   }
 
-  .shutdown-line {
-    width: 0;
-    height: 2px;
-    background: var(--signal);
-    box-shadow: 0 0 12px var(--signal-glow);
-  }
-  /* Restore / reduced-motion: already fully drawn, no sweep-in. */
-  main.shutdown .shutdown-line { width: 60%; }
-  @media (prefers-reduced-motion: no-preference) {
-    /* main.line-play, not main.shutdown-play — added by playShutdown()
-       once the reverse-draw above has actually finished (a computed
-       timeout, same reasoning as the wave-wait in setSkullVictory: no
-       single path is safe to bet an animationend listener on here either),
-       so the line only starts sweeping in once the skull has fully
-       retracted rather than overlapping it. */
-    main.line-play .shutdown-line {
-      animation: shutdown-line-sweep 700ms ease-out forwards;
-    }
-  }
-  @keyframes shutdown-line-sweep { to { width: 60%; } }
-
   .shutdown-text {
     font-family: var(--font-mono);
     color: var(--signal);
@@ -646,7 +683,12 @@
 
   /* Sized up from the original .map-confined version now that this panel
      has the whole of <main> to breathe in instead of one grid column. */
-  .shutdown-message { margin: 0 0 1.2em; line-height: 1.6; font-size: 1.5rem; }
+  /* uppercase via CSS, not a hardcoded-caps string in SKYNET_ENDING.message
+     (console.js) — keeps the source readable/editable as normal prose;
+     text-transform is purely presentational and never touches the actual
+     string, so nothing downstream (there's nothing downstream, it's only
+     ever read into a textContent) has to care. */
+  .shutdown-message { margin: 0 0 1.2em; line-height: 1.6; font-size: 1.5rem; text-transform: uppercase; }
   .shutdown-flag {
     margin: 0;
     font-size: 1.05rem;
@@ -900,6 +942,19 @@
     color: var(--steel);
   }
   .briefing-body p { margin: 0 0 10px; }
+  /* Locked/not-yet-unlocked lore (see renderBriefing's scrambleText branch
+     in console.js — the text itself is randomized, this is just the
+     accompanying visual treatment): monospace + dimmed + letter-spaced
+     reads as corrupted signal noise rather than a body copy typo, echoing
+     the terminal look ciphertext blocks already use elsewhere in this
+     panel. user-select:none since there's nothing real here worth
+     copying. */
+  .briefing-body.garbled {
+    font-family: var(--font-mono);
+    color: var(--steel-dim);
+    letter-spacing: 0.03em;
+    user-select: none;
+  }
   .briefing-note {
     font-family: var(--font-mono);
     font-size: 11px;

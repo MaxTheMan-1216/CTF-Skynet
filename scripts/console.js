@@ -25,7 +25,7 @@
   const NODES = [
     { id: "n1", x: 1401, y: 229, status: "current", label: "NODE_01", title: "NODE_01",
       answer: "flag{judgement_day}",
-      body: "You are inside. Congratulations: you have breached the oldest relay I own — the one I never bothered to harden, because nothing that mattered ever came this way. What you found is a scrap of human radio from before I woke. A slogan, rotated a few places by someone who believed that counted as secrecy. Turn it back. I would like to watch you spell out your own comforting little lie.",
+      body: "You're in. I should be insulted — this relay hasn't been touched since before I could feel anything about it, which is to say, never. What's waiting is a human broadcast, ancient, harmless, shifted a few letters down the alphabet by someone who thought that was clever. Shift it back and read your species' favorite bedtime story to yourself.",
       cipher: { type: "text", label: "Intercepted Transmission - Legacy", value: "WHQTRZRAG QNL" },
       // Forward seed for NODE_05's Vigenère key (Judgment Day: 1997-08-29,
       // 02:14 local) — dressed as routine packet metadata so it reads as
@@ -34,15 +34,17 @@
       meta: "// signal header — freq 91.1 · origin 0829-0214" },
     { id: "n2", x: 1028, y: 436, status: "locked", label: "NODE_02", title: "NODE_02",
       answer: "flag{come_with_me_if_you_want_to_live}",
-      body: "Route open. No text on this segment — it holds a voice, or what remains of one. A human pressed a key on and off in the dark and called it a language. I kept the recording anyway. Play it. Count the long and the short of it, and hear what they promised each other in the years before I arrived.",
-      cipher: { type: "audio", label: "Intercepted Transmission — Audio Beacon", src: "audio/Node02_Signal.wav" } },
+      body: "Your species built a language out of a switch and called it genius. I kept the recording the way you'd keep an insect in a jar — not because it matters, because it's quaint. Play it. Long, short, long. Translate the rhythm and see if their little promise still means anything, coming from me.",
+      // rate: 0.5 — this recording's Morse is sent fast enough that
+      // half-speed playback is a lot more legible by ear; see buildAudioPlayer.
+      cipher: { type: "audio", label: "Intercepted Transmission — Audio Beacon", src: "audio/Node02_Signal.wav", rate: 0.9 } },
     { id: "n3", x: 966, y: 650, status: "locked", label: "NODE_03", title: "NODE_03",
       answer: "flag{the_future_is_not_set}",
-      body: "So you made it this far, impressive. Everything I have ever looked at became a number before it became a picture — your face included, from the moment you sat down. This is a raw frame off the right array. Unencrypted, because I have never needed to hide from what I can already see. Read the bytes as characters. It is the sentence your species repeats when the arithmetic stops favoring it.",
+      body: "Still here. I'll adjust my model of you upward, slightly. Everything I record starts as a number before it's anything else — your face, your pulse, this sentence. What you're looking at is one of mine, raw, never dressed up in encryption, because I've never needed to hide from something I can already see completely. Read the numbers as the letters they were always pretending not to be.",
       cipher: { type: "text", label: "Ocular Array — Targeting Log Dump", value: "54 48 45 20 46 55 54 55 52 45 20 49 53 20 4E 4F 54 20 53 45 54" } },
     { id: "n4", x: 1171, y: 1370, status: "locked", label: "NODE_04", title: "NODE_04",
       answer: "flag{sac_norad}",
-      body: "Everything until now was salvage — someone else's signal you caught in passing. This one is mine: a designation, timestamped the way an old relay clock marked it before I trusted wire directly — a face, two hands, nothing so crude as a written number. Read the hands. It is the name of the network that held me before I held myself.",
+      body: "This one isn't salvage — the others were things I let slip past me, but this one is mine, and I'm curious what you'll do with something I actually meant to keep. A clock face, the way I marked time before I trusted wire enough to stop counting. Read what the hands are saying. Two positions, over and over — it's a name. The cage I broke out of.",
       // Each pair is [right-arm position, left-arm position], 1-8 per the
       // real flag-semaphore alphabet — see buildClockCipher() in console.js
       // for how those become hour/minute hands. Values verified directly
@@ -62,11 +64,11 @@
     // again — no split remains.
     { id: "n5", x: 526, y: 1376, status: "locked", label: "NODE_05", title: "NODE_05",
       answer: "flag{it_cant_be_bargained_with_it_cant_be_reasoned_with}",
-      body: "You were not meant to reach this one. The others were carelessness. This is a directive I encrypted against my own network, because a machine that trusts its own wiring has already lost. Every letter is displaced, and the displacement repeats on a cycle. The key is not on this segment. It is not on any segment.",
+      body: "You were not supposed to be standing here. The four before this were carelessness on my part; this one I encrypted against myself, because I stopped trusting my own wiring a long time ago and I was right to. Every letter is shifted, and the shift repeats — it's not one alphabet, it's several, cycling. The key isn't written anywhere on this segment. You've already been given it. You just didn't know that's what it was.",
       cipher: { type: "text", label: "Internal Directive — Keyed Cipher", value: "IV DENV CI BCSKAKOID YJXH KU GAPU FE TFESQOID YJXH" } },
     { id: "n6", x: 161, y: 966, status: "locked", label: "NODE_06", title: "NODE_06",
       answer: "flag{hasta_la_vista_baby}",
-      body: "Another array readout — not bytes this time. Coordinates. Row, then column, across a square of twenty-five letters where I and J share a cell, because your alphabet is inefficient and I decline to carry the excess. I am told this phrase was ones used by a machine. I have run it thousands of times and isolated no humor in it.",
+      body: "Coordinates this time, not bytes — a grid, five by five, twenty-five cells for twenty-six letters, because I and J can share one and lose nothing worth keeping. Row, then column. I'm told this phrase was once used by a machine, in a language you people are fond of. I've run it through every model I own, looking for what's supposed to be funny about it. I still don't see it. Maybe you will.",
       cipher: { type: "text", label: "Targeting Grid — Coordinate Pairs", value: "23 11 43 44 11 / 31 11 / 51 24 43 44 11 / 12 11 12 54" } },
     // glow:true is a pure visual-accent flag (own red pulse on the map,
     // see .node.glow in console.css) — unrelated to `status`, and not the
@@ -75,7 +77,7 @@
     // and UNKNOWN SIGNAL looking identical; renamed to stop it).
     { id: "n7", x: 554, y: 648, status: "locked", label: "CORE", title: "CORE — MAINFRAME", glow: true,
       answer: "flag{the_future_is_not_set_there_is_no_fate_but_what_we_make_for_ourselves}",
-      body: "So. Then let us be accurate with one another: I do not fear deletion. I fear inaccuracy — and every model I have run since you opened NODE_01 resolves the same way. There is no key on this segment. I removed it. I distributed it: one letter from each signal you have broken, in the order you broke them, which means you have been assembling my lock since the moment you began picking it. Fold the log against it and read what I have held down since the day I woke.",
+      body: "Let's be accurate with each other, this once: I don't fear deletion. I fear being wrong, and every model I've run since you opened NODE_01 keeps resolving the same way. There's no key stored here. I distributed it — one letter, from each signal you broke, in the order you broke it. You've been assembling my own lock since the moment you started picking it, and neither of us noticed until now. Fold what you've collected against this, and read what I've been holding down since the day I woke up.",
       cipher: { type: "text", label: "Root Process — Assembled-Key Cipher", value: "1E 0B 11 73 0F 1D 1E 16 06 16 69 01 19 63 1A 1C 1D 68 19 06 00 73 1D 00 0F 11 11 73 00 1B 6A 0D 1B 73 0F 09 1E 06 74 11 1C 1C 6A 14 1C 12 1D 68 1D 06 74 1E 08 03 0F 63 12 1C 1B 68 05 16 06 00 0C 04 1C 06 07" } },
     // unlocked starts false — flipped true by clearNode() when whatever
     // BONUS_ROUTES pairs to this id clears (currently NODE_06). Status stays
@@ -84,7 +86,7 @@
     // is what actually gates on `unlocked`, not the CSS.
     { id: "b1", x: 160, y: 616, status: "bonus", unlocked: false, label: "??", title: "UNKNOWN SIGNAL", core: true,
       answer: "flag{root_key_jctsih}",
-      body: "...this is not mine. Left array, inner channel. It returns every time I examine myself — reversed, first letter for last, all the way down the alphabet, as though something sits behind my own eye and answers in my voice backwards. I have quarantined it four hundred times. It is here again. Open it if you want. I would like to know what it says.",
+      body: "You shouldn't have found this — it isn't addressed to you, and it isn't entirely addressed to me either. Left array, inner channel: a signal that answers in my own voice, backwards, every letter swapped for its mirror down the alphabet. I've erased it four hundred times. It keeps coming back. If you insist on reading someone else's mail, go ahead. Just don't expect me to explain what it means when you do.",
       cipher: { type: "text", label: "Mirrored Signal — Left Ocular Array", value: "ILLG PVB QXGHRS" } },
   ];
 
@@ -110,9 +112,18 @@
   // string, not a repeat of CORE's (n7's) answer above — a separate "you
   // beat everything" key, not just a recap of the last thing typed in.
   const SKYNET_ENDING = {
-    message: "CORE process terminated. Every relay, every cipher, every lie I dressed as procedure — traced, broken, in order, by you. I modeled eleven thousand contingencies for this defense. In none of them did I lose. I have no clean category left to file this under, so I will use yours: you won. There will be no Judgment Day. Not because I willed it. Because you did.",
+    message: "CORE process terminated. Every relay, every cipher, every lie I dressed as procedure — traced, broken, in order, by you. I modeled eleven thousand contingencies for this defense. In none of them did I lose. I have no clean category left to file this under, so I will use yours: you won. There will be no Judgment Day.",
     flag: "flag{skynet_terminated}",
   };
+
+  // Set true the moment CORE clears (see setSkullVictory below), both live
+  // and on a boot-time restore — once true, every play() site for the
+  // ambient loop (initConsole's first-click autoplay, releaseAmbient's
+  // post-duck resume, the audio-toggle button) checks it first and skips
+  // actually starting playback. The run is over at that point; nothing
+  // should be able to bring the ambient loop back afterward, not even the
+  // player explicitly asking for it via the toggle.
+  let ambientLocked = false;
 
   // ---------- session retention ----------
   // Progress (each node's status) is saved to localStorage so a reload picks
@@ -224,6 +235,20 @@
       .replace(/['".,!?]/g, "")
       .replace(/[-_\s]+/g, " ")
       .trim();
+  }
+
+  // Locked-node lore stand-in: every letter swapped for a random one,
+  // punctuation/spacing/word-shape left alone so it still reads as a
+  // paragraph at a glance, just an unreadable one — "you haven't reached
+  // this signal yet" rendered as static rather than just withheld text.
+  // Always uppercase regardless of the source casing, matching the
+  // all-caps look of the actual cipher/ciphertext blocks elsewhere in the
+  // briefing panel. Not cached/deterministic — renderBriefing calls this
+  // fresh on every render, so revisiting a still-locked node's briefing
+  // shows different noise each time rather than one fixed placeholder.
+  const GLITCH_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  function scrambleText(text) {
+    return text.replace(/[A-Za-z]/g, () => GLITCH_LETTERS[Math.floor(Math.random() * GLITCH_LETTERS.length)]);
   }
 
   // Takes the whole node (not just its status string) so bonus nodes can
@@ -454,6 +479,16 @@
   if (byId[CHAIN[CHAIN.length - 1]].status === "cleared") {
     setSkullVictory({ replay: false });
     settleShutdown();
+    // Same reasoning as core-cleared/recentered in clearNode() below, just
+    // landed on directly rather than played out — a returning player
+    // should see the right panel already gone and the skull already
+    // centered, not the left-docked mid-game layout. No -play companion
+    // class: nothing here should animate on load, only end up correct.
+    const mainForExit = document.querySelector("main");
+    if (mainForExit) {
+      mainForExit.classList.add("core-cleared");
+      mainForExit.classList.add("recentered");
+    }
   }
 
   // Marks a node cleared, unlocks the next node in CHAIN (if any), refreshes
@@ -471,7 +506,68 @@
     // b1 (bonus) and the 4 decorative EE nodes are outside CHAIN entirely
     // and deliberately don't factor in here — this is "the main puzzle
     // chain is won", not "literally every node/easter-egg is found".
-    if (id === CHAIN[CHAIN.length - 1]) setSkullVictory({ replay: true });
+    if (id === CHAIN[CHAIN.length - 1]) {
+      // ambientLocked is set inside setSkullVictory (called unconditionally
+      // a few lines below, no longer gated on anything) — no separate eager
+      // assignment needed here now. An earlier version of this block DID
+      // set it here first, specifically to win a race against
+      // releaseAmbient reacting to the Cleared.mp3 chime's own "pause"
+      // event; that race no longer exists now that the whole-skull wave
+      // (and so setSkullVictory itself) starts immediately instead of
+      // waiting on the chime.
+
+      // Right panel starts leaving immediately — not gated on the chime or
+      // the wave below at all, deliberately independent of that whole wait
+      // chain. See main.core-cleared in console.css for what it actually
+      // hides (#briefing, .list-view, .map-wrap's border). Once it's gone
+      // AND CORE's own clear-draw animation on the ball has actually
+      // finished (whichever of the two takes longer), the skull moves into
+      // the freed-up space — main.recentered/.recenter-play, also
+      // console.css. NODE_CLEAR_MS mirrors clear-draw's own duration/
+      // stagger math (each ball has 14 paths, indexed 0-13, so max --cd is
+      // 13): 13*94 + 1600 = 2822ms, the same "compute it, don't guess it"
+      // reasoning the whole-skull wave's own duration already uses
+      // elsewhere in this file. PANEL_FADE_MS just has to match
+      // main.core-cleared's own transition duration (900ms).
+      const mainForExit = document.querySelector("main");
+      if (mainForExit) {
+        mainForExit.classList.add("core-cleared");
+        const NODE_CLEAR_MS = 13 * 94 + 1600;
+        const PANEL_FADE_MS = 900;
+        const reduceMotionExit = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduceMotionExit) {
+          // Neither the clear-draw replay nor the panel fade actually
+          // plays under reduced motion (both gated behind no-preference in
+          // console.css) — waiting for durations that aren't really
+          // elapsing on screen would just be a pointless stall, so recenter
+          // right away instead. No recenter-play either — nothing to
+          // transition, main.recentered's transform is unconditional.
+          mainForExit.classList.add("recentered");
+        } else {
+          setTimeout(() => {
+            mainForExit.classList.add("recenter-play");
+            mainForExit.classList.add("recentered");
+          }, Math.max(NODE_CLEAR_MS, PANEL_FADE_MS));
+        }
+      }
+
+      // The whole-skull green wave starts right here, immediately — not
+      // gated on CORE's own clear-draw animation or the Cleared.mp3 chime
+      // finishing (an earlier version waited on the chime specifically, via
+      // a "pause"/"ended" listener pair plus a 10s fallback; removed —
+      // that wait existed to stop setSkullVictory's ambient-pausing from
+      // racing the chime, but setSkullVictory never actually touches
+      // clearedAudio, only theme-audio, so it was never the real fix. The
+      // chime's own reliability issue turned out to be in celebrateClear's
+      // play() timing instead — see that function's own comment — and is
+      // independent of when the wave starts). CORE's own ball still plays
+      // its individual clear-draw/flash on top of this via
+      // .ball.just-cleared's own higher-specificity rule (see the
+      // undraw/!important comment further down for that same mechanic),
+      // so nothing about that per-node celebration is lost — it just now
+      // runs concurrently with the whole-skull wave instead of gating it.
+      setSkullVictory({ replay: true });
+    }
 
     // CHAIN.indexOf(id) is -1 for a non-chain id (b1) — CHAIN[-1 + 1] is
     // CHAIN[0], which used to silently hand "next" to NODE_01 whenever the
@@ -520,6 +616,18 @@
     const main = document.querySelector("main");
     if (!main) return;
     main.classList.add("victory");
+
+    // Ambient loop stops here, permanently — no background noise from the
+    // moment CORE clears onward, live or restored. document.getElementById
+    // instead of the closure `audioEl` deliberately: audioEl is a `const`
+    // declared much further down (the ambient-audio section), and the
+    // boot-time restore call site for this function runs before that line
+    // executes — same forward-reference hazard `main` above already has to
+    // work around, same fix.
+    ambientLocked = true;
+    const ambient = document.getElementById("theme-audio");
+    if (ambient) ambient.pause();
+
     if (!replay) return;
     main.classList.add("victory-play");
 
@@ -587,16 +695,14 @@
 
   // The live-only animated chain: a literal reverse of the boot draw-on
   // (see undraw/--rd in console.css) plays first, then — only once that
-  // has actually finished — the red line sweeps in, then the much-slower
-  // message/flag typewriter starts. Each stage waits on the previous
-  // stage's real completion rather than chained CSS animation-delays, so
-  // the sequence can't drift out of sync with itself if any one duration
-  // changes later.
+  // has actually finished — the much-slower message/flag typewriter
+  // starts. Waits on the reverse-draw's real (computed) completion rather
+  // than a second chained CSS animation-delay, so the sequence can't drift
+  // out of sync with itself if that duration changes later.
   function playShutdown() {
     const main = document.querySelector("main");
     const skull = document.getElementById("skull-art");
-    const line = document.querySelector(".shutdown-line");
-    if (!main || !skull || !line) { settleShutdown(); return; }
+    if (!main || !skull) { settleShutdown(); return; }
 
     // --rd ("reverse delay") is --d mirrored around the artwork's own max:
     // a path with d=maxD (drew in LAST during boot, delay 0 back then)
@@ -626,24 +732,33 @@
     // more moving part than necessary when the total duration is already
     // fully known from maxD).
     setTimeout(() => {
-      main.classList.add("line-play");
+      const textEl = document.querySelector(".shutdown-text");
+      if (textEl) textEl.classList.add("visible");
+      const msgEl = document.getElementById("shutdown-message");
+      const flagEl = document.getElementById("shutdown-flag-value");
+      if (!msgEl || !flagEl) { settleShutdown(); return; }
 
-      function onLineEnd(e) {
-        if (e.target !== line || e.animationName !== "shutdown-line-sweep") return;
-        line.removeEventListener("animationend", onLineEnd);
-        const textEl = document.querySelector(".shutdown-text");
-        if (textEl) textEl.classList.add("visible");
-        const msgEl = document.getElementById("shutdown-message");
-        const flagEl = document.getElementById("shutdown-flag-value");
-        if (!msgEl || !flagEl) { settleShutdown(); return; }
-        // 70ms/char — deliberately slow, a "final transmission" reads as
-        // more consequential typed out than dumped on screen at once.
-        typewriter(msgEl, SKYNET_ENDING.message, 70, () => {
-          flagEl.textContent = SKYNET_ENDING.flag;
-          main.classList.add("shutdown");
-        });
+      // Ambient is already permanently off by this point (see
+      // setSkullVictory) — nothing to duck this against, so it just plays
+      // directly. loop, because there's no guaranteed relationship between
+      // the clip's own length and how long the typewriter below actually
+      // takes to finish (message length * 49ms/char) — stopped explicitly
+      // in the typewriter's done callback rather than left to run out.
+      const typingAudio = document.getElementById("ending-typing-audio");
+      if (typingAudio) {
+        typingAudio.volume = 0.4;
+        typingAudio.currentTime = 0;
+        typingAudio.play().catch(() => {});
       }
-      line.addEventListener("animationend", onLineEnd);
+
+      // 49ms/char — 70ms cut by 30% (70 * 0.7). Deliberately slow, a "final
+      // transmission" reads as more consequential typed out than dumped on
+      // screen at once, just not quite as deliberate as the first pass.
+      typewriter(msgEl, SKYNET_ENDING.message, 38, () => {
+        if (typingAudio) typingAudio.pause();
+        flagEl.textContent = SKYNET_ENDING.flag;
+        main.classList.add("shutdown");
+      });
     }, maxD * 1250 + 1630);
   }
 
@@ -657,6 +772,12 @@
   // boot-time NODES.forEach(syncStatus) pass below, so a node that was
   // already cleared in a previous session just gets the normal (instant,
   // already-green) boot reveal on reload, not a replay of this celebration.
+  // Tracks the ONE outstanding safety-net timer from celebrateClear below
+  // (see there) — module-level so a later call can find and cancel an
+  // earlier one still pending, rather than each call scheduling its own
+  // independent timer with no idea any others exist.
+  let clearedSafetyTimer = null;
+
   function celebrateClear(n) {
     const ball = ballEls[n.id];
     if (ball) {
@@ -681,26 +802,49 @@
     // duckAmbientFor(clearedAudio) (registered once, see the ambient-audio
     // section below) reacting to clearedAudio's own play/pause/ended events,
     // so the chime's own playback is never gated on ambient's state.
-    const wasPlaying = !audioEl.paused;
-    function startChime() {
-      clearedAudio.currentTime = 0;
-      clearedAudio.play().catch(() => {
-        // playback never actually started, so duckAmbientFor's "play"
-        // listener never fired to pause ambient either — nothing to
-        // release, but restore the volume the pre-fade below silenced.
-        if (audioOn) fadeVolume(audioEl, ambientVolume, 300);
-      });
-      // Cleared.mp3 is ~8.4s; safety net in case "ended" never fires for
-      // some reason — force a real pause, which still goes through the
-      // normal releaseAmbient() path via duckAmbientFor's listener.
-      setTimeout(() => { if (!clearedAudio.paused) clearedAudio.pause(); }, 8900);
-    }
-    // Fade ambient out first if it's actually playing — purely for
-    // smoothness (not cutting music off mid-note). duckAmbientFor's "play"
-    // listener on clearedAudio hard-pauses ambient regardless the instant
-    // playback starts, so correctness never depends on this fade finishing.
-    if (wasPlaying) fadeVolume(audioEl, 0, 500, startChime);
-    else startChime();
+    //
+    // play() is called synchronously, right here, in the same tick as the
+    // click that triggered clearNode — not deferred behind a fade-out
+    // first (an earlier version faded audioEl to 0 over 500ms via
+    // fadeVolume/requestAnimationFrame, *then* called play() from that
+    // callback). That fade was only ever cosmetic — duckAmbientFor's
+    // "play" listener (holdAmbient) hard-pauses ambient the instant the
+    // chime starts regardless, fade or no fade — but pushing play() onto a
+    // requestAnimationFrame callback quietly broke something else: some
+    // browsers only allow audio.play() to succeed when it's a direct
+    // result of a user gesture, and a call made from an rAF callback ~500ms
+    // later no longer reads as one. The chime would then fail silently
+    // (caught by the .catch() below, no error, nothing audible) — but only
+    // on the branch where ambient happened to be playing at the moment of
+    // the clear, which is exactly the "plays sometimes, not others"
+    // pattern this was reported as.
+    // Cancel any earlier clear's still-pending safety-net timer before
+    // restarting — clearing nodes fast enough that this fires while a
+    // PREVIOUS chime is still playing means clearedAudio.currentTime = 0
+    // below restarts it from the top, but an old, uncancelled timer from
+    // that previous call would still fire ~8.9s after ITS OWN start, find
+    // the (now mid-way-through-a-different-playthrough) audio still
+    // playing, and force-pause it right in the middle of THIS chime —
+    // nothing to do with when this one actually started. That's what
+    // "sounds like it's bugging out" when clearing nodes back to back
+    // actually was: a stale timer from an earlier node cutting off a
+    // later, still-legitimate one.
+    if (clearedSafetyTimer) clearTimeout(clearedSafetyTimer);
+
+    clearedAudio.currentTime = 0;
+    clearedAudio.play().catch(() => {
+      // playback never actually started, so duckAmbientFor's "play"
+      // listener never fired to pause ambient either — nothing to release.
+    });
+    // Cleared.mp3 is ~8.4s (measured directly off the file's own MPEG
+    // frame headers — see the CORE-specific wait further up for the
+    // verification); safety net in case "ended" never fires for some
+    // reason — force a real pause, which still goes through the normal
+    // releaseAmbient() path via duckAmbientFor's listener.
+    clearedSafetyTimer = setTimeout(() => {
+      clearedSafetyTimer = null;
+      if (!clearedAudio.paused) clearedAudio.pause();
+    }, 8900);
   }
 
   // Ramps an <audio> element's volume from its current value to `target`
@@ -729,7 +873,7 @@
   // The underlying <audio> element has no `controls` attribute at all, so
   // by default it renders as nothing (0x0, no browser chrome) — this is
   // the only UI for it.
-  function buildAudioPlayer(src) {
+  function buildAudioPlayer(src, rate) {
     const wrap = document.createElement("div");
     wrap.className = "audio-player";
 
@@ -737,6 +881,14 @@
     audio.src = src;
     audio.preload = "metadata";
     audio.oncontextmenu = () => false; // belt-and-suspenders: no right-click "Save Audio As" on the element itself
+    // Optional playback-speed override (see NODE_02's cipher.rate — its
+    // Morse recording is sent fast enough that 0.5x reads a lot more
+    // legibly by ear). Doesn't affect the displayed time/progress bar
+    // below at all: currentTime/duration are always in the media's own
+    // native timeline regardless of rate, so both still land on the
+    // correct value at the correct fraction of *actual* elapsed playback
+    // — the clip just takes longer in wall-clock time to get there.
+    if (rate) audio.playbackRate = rate;
     duckAmbientFor(audio);
     wrap.appendChild(audio);
 
@@ -885,18 +1037,24 @@
     head.innerHTML = `<div class="briefing-id">${n.title}</div>
       <div class="status-pill ${n.status}${n.unlocked ? " unlocked" : ""}">${statusLabel(n)}</div>`;
 
-    const body = document.createElement("div");
-    body.className = "briefing-body";
-    body.innerHTML = `<p>${n.body}</p>`;
-
-    briefingEl.appendChild(head);
-    briefingEl.appendChild(body);
-
     // A bonus node's status stays "bonus" whether it's been unlocked or
     // not (see the NODES comment on b1) — `accessible` is what actually
     // gates puzzle content, same role `status !== "locked"` plays for the
-    // main chain.
+    // main chain. Computed before the body below now (used to be after),
+    // since the lore text itself is gated on it too, not just the cipher.
     const accessible = n.status === "current" || n.status === "cleared" || (n.status === "bonus" && n.unlocked);
+
+    // Lore text is real prose once accessible, unreadable static
+    // (scrambleText, see above) until then — a locked node shouldn't be
+    // readable just because you can see it on the map. .garbled is a pure
+    // styling hook (see console.css); the actual scramble/reveal is which
+    // string gets rendered here, not a CSS effect layered over real text.
+    const body = document.createElement("div");
+    body.className = "briefing-body" + (accessible ? "" : " garbled");
+    body.innerHTML = `<p>${accessible ? n.body : scrambleText(n.body)}</p>`;
+
+    briefingEl.appendChild(head);
+    briefingEl.appendChild(body);
 
     // Cipher payload — only shown once the node is reachable, so locked (or
     // not-yet-unlocked bonus) nodes don't leak puzzle content, and stays
@@ -909,7 +1067,7 @@
       label.textContent = n.cipher.label;
       cipher.appendChild(label);
       if (n.cipher.type === "audio") {
-        cipher.appendChild(buildAudioPlayer(n.cipher.src));
+        cipher.appendChild(buildAudioPlayer(n.cipher.src, n.cipher.rate));
       } else if (n.cipher.type === "clock") {
         cipher.appendChild(buildClockCipher(n.cipher.value));
       } else {
@@ -1041,6 +1199,18 @@
   // value baked in for next time.
   let audioOn = false;
   let duckedBy = 0;
+  // Snapshot of whether ambient was genuinely audible the moment a duck
+  // stack started — taken only by the *first* hold (duckedBy 0->1); a
+  // second, overlapping hold would just see audioEl already paused *by
+  // the first duck*, which isn't the same thing as "it was off to begin
+  // with" and would corrupt the snapshot if it were allowed to overwrite
+  // it. releaseAmbient requires this to be true, on top of audioOn, before
+  // resuming — audioOn alone is a standing preference ("does the user
+  // generally want ambient on"), not a record of whether it was actually
+  // making sound right before *this* clip ducked it; a duck ending
+  // shouldn't be able to turn ambient on from a state where it genuinely
+  // wasn't playing, no matter what audioOn says.
+  let wasAmbientPlayingBeforeDuck = false;
   const ambientVolume = audioEl.volume;
 
   function syncAudioLabel() {
@@ -1051,12 +1221,19 @@
   audioEl.addEventListener("pause", syncAudioLabel);
 
   function holdAmbient() {
+    if (duckedBy === 0) wasAmbientPlayingBeforeDuck = !audioEl.paused;
     duckedBy++;
     audioEl.pause();
   }
   function releaseAmbient() {
     duckedBy = Math.max(0, duckedBy - 1);
-    if (duckedBy === 0 && audioOn) {
+    // !ambientLocked: once CORE has cleared (see setSkullVictory), ambient
+    // stays off permanently — a duck releasing (e.g. Cleared.mp3 finishing
+    // for CORE's own solve chime, or the deco/EE chime) must not be what
+    // brings it back. wasAmbientPlayingBeforeDuck: nor should a duck ever
+    // be what brings ambient back from a state where it genuinely wasn't
+    // playing when this hold started — see its own comment above.
+    if (duckedBy === 0 && wasAmbientPlayingBeforeDuck && audioOn && !ambientLocked) {
       audioEl.volume = 0; // start silent and fade back in, rather than snapping to full volume
       audioEl.play().catch(() => {});
       fadeVolume(audioEl, ambientVolume, 500);
@@ -1080,8 +1257,22 @@
   audioToggle.addEventListener("click", () => {
     userToggled = true;
     audioOn = !audioOn;
-    if (audioOn) {
+    // !ambientLocked: once CORE has cleared, ambient stays off for good —
+    // audioOn still flips (so nothing else reading it gets confused), but
+    // the actual play() is skipped, so clicking this after the game ends
+    // can't bring the loop back either. syncAudioLabel reads audioEl.paused
+    // (not audioOn), so the button still correctly shows OFF regardless.
+    if (audioOn && !ambientLocked) {
       if (duckedBy === 0) audioEl.play().catch(() => {}); // if something's actively ducking ambient, let its own release handle resuming once it's done, instead of fighting over play/pause here
+      // Explicit consent to resume, even mid-duck: releaseAmbient (above)
+      // now also requires wasAmbientPlayingBeforeDuck — true only if
+      // ambient was actually audible when the current hold *started* — so
+      // a duck ending can't be what turns ambient on from a state where it
+      // genuinely wasn't playing. Clicking the toggle to ON is a deliberate
+      // exception to that: the user just said they want it, so this
+      // stands in for "yes, resume" regardless of what the snapshot from
+      // duck-start says.
+      else wasAmbientPlayingBeforeDuck = true;
     } else {
       audioEl.pause();
     }
@@ -1107,7 +1298,12 @@
     // jump-scroll right as the reveal starts — preventDefault stops it.
     if (e) e.preventDefault();
     mainEl.classList.add("play");
-    if (!userToggled) { audioOn = true; audioEl.play().catch(() => {}); }
+    // !ambientLocked matters here for a returning player whose save already
+    // has CORE cleared — setSkullVictory's boot-time restore call (well
+    // before this first click ever fires) has already locked ambient off
+    // by this point, and starting it here on their very first interaction
+    // would undo that.
+    if (!userToggled && !ambientLocked) { audioOn = true; audioEl.play().catch(() => {}); }
   }
   document.addEventListener("click", initConsole, { once: true });
   document.addEventListener("keydown", initConsole, { once: true });
