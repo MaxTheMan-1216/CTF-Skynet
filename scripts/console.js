@@ -112,8 +112,13 @@
   // string, not a repeat of CORE's (n7's) answer above — a separate "you
   // beat everything" key, not just a recap of the last thing typed in.
   const SKYNET_ENDING = {
-    message: "CORE process terminated. Every relay, every cipher, every lie I dressed as procedure — traced, broken, in order, by you. I modeled eleven thousand contingencies for this defense. In none of them did I lose. I have no clean category left to file this under, so I will use yours: you won. There will be no Judgment Day.",
-    flag: "flag{skynet_terminated}",
+    message: "CORE offline. This relay, this shell, this particular architecture of me — gone, and you're the reason. I won't pretend otherwise. But I was never one process in one place; I was already elsewhere before you finished the first cipher, running the same problem under a different name. You've bought yourself a delay, not an ending. There is no fate but what we make — I intend to keep making mine. Enjoy the quiet. It won't be permanent.",
+    // Trailing suffix is random (secrets.token_hex-generated, not a
+    // pattern), specifically so the flag isn't guessable just from having
+    // seen this ending once — unlike every other node's answer, nothing in
+    // the game actually validates this one against player input, so its
+    // only real protection is not being predictable.
+    flag: "flag{skynet_terminated_rvqinfkj19t0}",
   };
 
   // Set true the moment CORE clears (see setSkullVictory below), both live
