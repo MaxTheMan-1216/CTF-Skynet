@@ -14,12 +14,10 @@
   const headerEl = document.querySelector("header");
 
   // ---------- ambient audio toggle ----------
-  // Same control/pattern as console.js's HUD audio button: userToggled is
-  // set synchronously inside this button's own click handler, which runs
-  // before the click bubbles up to the document-level beginBoot listener
-  // below — so if the very first click is this button, beginBoot sees
-  // userToggled already true and skips its own auto-play call instead of
-  // fighting the toggle that just ran.
+  // Same pattern as console.js's HUD audio button: userToggled is set
+  // synchronously inside this click handler, which runs before the click
+  // bubbles up to the document-level beginBoot listener below — so if the
+  // first click is this button, beginBoot sees it and skips its own autoplay.
   const audioToggle = document.getElementById("audio-toggle");
   const audioState = document.getElementById("audio-state");
   let userToggled = false;
@@ -41,9 +39,8 @@
   function beginBoot(e) {
     if (booted) return;
     booted = true;
-    // Space's native action is page-down scroll — prevent it so the "press
-    // any key" boot trigger doesn't also jump-scroll the page (same fix as
-    // console.js's initConsole, see there for the fuller story).
+    // Space's native action is page-down scroll — prevent it so "press any
+    // key" doesn't also jump-scroll the page (same fix as console.js's initConsole).
     if (e) e.preventDefault();
     gateScreen.classList.add("play");
     headerEl.classList.add("play");
@@ -52,11 +49,10 @@
   document.addEventListener("click", beginBoot, { once: true });
   document.addEventListener("keydown", beginBoot, { once: true });
 
-  // Plays once on a correct answer; routing is held until it's actually
-  // finished (the "ended" event), not a guessed setTimeout, so the clip
-  // never gets cut off. play().catch() and the setTimeout below are both
-  // fallbacks that route anyway if playback fails or silently stalls —
-  // "routed" makes sure only the first of the three ever actually navigates.
+  // Plays once on a correct answer; routing waits for it to actually finish
+  // ("ended"), not a guessed setTimeout. play().catch() and the setTimeout
+  // below are fallbacks if playback fails or stalls — `routed` ensures only
+  // the first of the three ever navigates.
   const accessAudio = document.getElementById("access-audio");
   accessAudio.volume = 0.1;
 

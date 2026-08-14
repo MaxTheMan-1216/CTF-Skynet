@@ -5,7 +5,7 @@
 
 <header>
   <div>
-    <div class="wordmark">SKYNET<span>_</span>MAINFRAME</div>
+    <div class="wordmark">SKYNET<span>_</span>CONSOLE</div>
     <div class="subline">Global Digital Defense Network — Infiltration Interface</div>
   </div>
   <div class="hud-stats">
@@ -755,16 +755,12 @@
 
   <section class="briefing" id="briefing" aria-live="polite"></section>
 
-  <!-- Endgame overlay spanning the whole of <main> (both grid columns),
-       not just .map's — once the briefing panel disappears alongside the
-       skull, the ending has the full width to center in. Sits as the last
-       child of main so it paints on top of both .map-wrap and .briefing by
-       plain DOM order (no z-index needed, see .shutdown-panel in
-       console.css). Hidden until main carries .shutdown or .shutdown-play
-       (see setSkullVictory/settleShutdown/playShutdown in console.js).
-       Text content is filled in from SKYNET_ENDING there, not hardcoded
-       here, same reasoning as NODES: one place to review/edit narrative +
-       flag. -->
+  <!-- Endgame overlay spanning the whole of <main>, not just .map's — once
+       the briefing panel disappears alongside the skull, this has the full
+       width to center in. Last child of main so it paints on top by plain
+       DOM order (see .shutdown-panel in console.css). Hidden until main
+       carries .shutdown/.shutdown-play; text is filled in from
+       SKYNET_ENDING in console.js, not hardcoded here. -->
   <div class="shutdown-panel" id="shutdown-panel">
     <div class="shutdown-text">
       <p class="shutdown-message" id="shutdown-message"></p>
@@ -778,11 +774,8 @@
 <audio id="theme-audio" src="audio/TM-Intro.mp3" loop preload="auto"></audio>
 <audio id="cleared-audio" src="audio/Cleared.mp3" preload="auto"></audio>
 <audio id="deco-audio" src="audio/EE.wav" preload="auto"></audio>
-<!-- loop, not one-shot: the typewriter's total duration depends on
-     SKYNET_ENDING.message's length and the per-char speed (both console.js),
-     so there's no way to guarantee this clip is exactly as long as the
-     typing — playShutdown() explicitly stops it once typing finishes rather
-     than relying on it running out at the right moment. -->
+<!-- loop, not one-shot: its length has no fixed relationship to the
+     typewriter's — playShutdown() stops it explicitly once typing finishes. -->
 <audio id="ending-typing-audio" src="audio/ending-typing.mp3" loop preload="auto"></audio>
 
 <script src="scripts/console.js"></script>

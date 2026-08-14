@@ -1,13 +1,9 @@
   html, body { height: 100%; }
 
   /* ---------- audio toggle: same control as console.html's HUD stat, pinned
-     top-right. Held at opacity:0 and revealed on the same fade-up schedule as
-     .gate (see the no-preference reveal block below) rather than being
-     visible pre-boot — audio can't play before the first interaction anyway
-     (browser autoplay policy), and the race between this button's own click
-     and the page-wide beginBoot() click listener is guarded in JS the same
-     way console.js does it (a userToggled flag set synchronously inside the
-     button handler, checked before beginBoot's own auto-play call). */
+     top-right. Held at opacity:0 and revealed on the same fade-up schedule
+     as .gate below rather than visible pre-boot — audio can't play before
+     the first interaction anyway (browser autoplay policy). */
   header {
     position: fixed;
     top: clamp(16px, 3vw, 28px);
@@ -43,21 +39,14 @@
     text-align: center;
   }
 
-  /* old-CRT signal hiccup: a jagged ~250ms tear burst near the start of every
-     10.6s loop, then flat for the rest — only runs once boot has fired. The
-     first burst is pushed back a full 10.6s (animation-delay) so it doesn't
-     fire mid-reveal and collide with the emblem/wordmark/caption/gate
-     animations, which finish around the 2.3s mark; every following cycle
-     repeats at the normal 10.6s period since delay only holds back iteration 1.
-     Two parts read together as "glitch" rather than a smooth wobble:
-     1) .gate-screen itself snaps position/contrast in hard steps() (no easing
-        — real glitches don't interpolate) and grows a red/phosphor "ghost"
-        double-image via drop-shadow, standing in for chromatic aberration
-        without borrowing a color outside the theme (this is a monochrome
-        red-phosphor terminal, not a color CRT, so a cyan RGB-split would be
-        the wrong artifact for this fiction).
-     2) a fixed ::after sweeps a bright horizontal band top-to-bottom during
-        the same window, like a CRT losing vertical hold. */
+  /* Old-CRT signal hiccup: a jagged ~250ms tear burst near the start of every
+     10.6s loop, then flat for the rest. The first burst is delayed a full
+     10.6s so it doesn't collide with the emblem/wordmark/caption/gate reveal
+     (finishes ~2.3s in); later cycles repeat at the normal period. Two parts
+     read as "glitch": .gate-screen snaps position/contrast in hard steps()
+     and grows a red/phosphor ghost double-image via drop-shadow (chromatic
+     aberration in this theme's own palette, not an unrelated color); a fixed
+     ::after sweeps a bright band top-to-bottom, like lost vertical hold. */
   @media (prefers-reduced-motion: no-preference) {
     .gate-screen.play { animation: glitch 10.6s steps(1, jump-end) 10.6s infinite; }
     .gate-screen.play::after { animation: glitch-roll 10.6s steps(1, jump-end) 10.6s infinite; }
@@ -179,10 +168,9 @@
     .gate-screen.play .wordmark { animation: flicker-in 0.63s steps(6, end) 1.31s forwards; }
     .gate-screen.play .caption { animation: fade-up 0.63s ease-out 1.88s forwards; }
     .gate-screen.play .gate { animation: fade-up 0.63s ease-out 2.31s forwards; }
-    /* header is a sibling of .gate-screen, not a descendant, so it can't be
-       reached by a .gate-screen.play descendant selector — beginBoot() adds
-       .play to it directly instead (see gate.js). Same fade-up timing as
-       .gate so the audio control appears alongside the form, once ready. */
+    /* header is a sibling of .gate-screen, not a descendant, so beginBoot()
+       (gate.js) adds .play to it directly. Same timing as .gate so the
+       audio control appears alongside the form. */
     header.play { animation: fade-up 0.63s ease-out 2.31s forwards; }
   }
 
