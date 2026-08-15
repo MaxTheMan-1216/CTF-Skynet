@@ -86,12 +86,14 @@
   const STATUS_CLASSES = ["cleared", "current", "locked", "bonus"];
 
   // Endgame copy shown once CORE clears (see setSkullVictory/settleShutdown/
-  // playShutdown below). `flag` is its own distinct string, not a repeat of
-  // CORE's (n7's) answer — nothing actually validates it against player
-  // input, so the random suffix is what keeps it from being guessable.
+  // playShutdown below). `flagCipher` is the real flag XOR-encrypted (see
+  // decryptEndingFlag further down) against a key derived from n1-n7's own
+  // answers — not stored as plaintext, not a repeat of CORE's (n7's)
+  // answerHash, and not checked against player input; the only thing that
+  // reconstructs it is having actually solved the main chain.
   const SKYNET_ENDING = {
     message: "CORE offline. This relay, this shell, this particular architecture of me — gone, and you're the reason. I won't pretend otherwise. But I was never one process in one place; I was already elsewhere before you finished the first cipher, running the same problem under a different name. You've bought yourself a delay, not an ending. There is no fate but what we make — I intend to keep making mine. Enjoy the quiet. It won't be permanent.",
-    flag: "flag{skynet_terminated_rvqinfkj19t0}",
+    flagCipher: "ad4390ed09c5f50f14ccf5e9084e6cca16ab526711b1aac6d03cda8af0cbc0709fd3df77",
   };
 
   // Set true the moment CORE clears (live or restored) — every ambient-loop
@@ -194,6 +196,39 @@
       .trim();
   }
 
+  // UTF-8 encode/decode a JS string <-> byte array — shared by sha256Hex
+  // below and the ending-flag cipher further down, so there's one encoder to
+  // trust rather than two copies to keep in sync. Handles surrogate pairs on
+  // the way in, though every string either one actually processes is plain
+  // ASCII in practice.
+  function utf8Encode(str) {
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+      let code = str.codePointAt(i);
+      if (code > 0xFFFF) i++;
+      if (code < 0x80) bytes.push(code);
+      else if (code < 0x800) bytes.push(0xC0 | (code >> 6), 0x80 | (code & 0x3F));
+      else if (code < 0x10000) bytes.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
+      else bytes.push(0xF0 | (code >> 18), 0x80 | ((code >> 12) & 0x3F), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
+    }
+    return bytes;
+  }
+  function utf8Decode(bytes) {
+    let out = "";
+    for (let i = 0; i < bytes.length; i++) {
+      const b0 = bytes[i];
+      if (b0 < 0x80) { out += String.fromCharCode(b0); continue; }
+      let n, code;
+      if ((b0 & 0xE0) === 0xC0) { n = 1; code = b0 & 0x1F; }
+      else if ((b0 & 0xF0) === 0xE0) { n = 2; code = b0 & 0x0F; }
+      else { n = 3; code = b0 & 0x07; }
+      for (let j = 1; j <= n; j++) code = (code << 6) | (bytes[i + j] & 0x3F);
+      i += n;
+      out += String.fromCodePoint(code);
+    }
+    return out;
+  }
+
   // Plain SHA-256 (FIPS 180-4), not crypto.subtle.digest — subtle only runs
   // in a "secure context" (https or localhost) and throws on file://, which
   // would break opening these files directly for local dev. This has no
@@ -212,17 +247,7 @@
       0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
     ];
     const H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
-
-    // UTF-8 encode (handles surrogate pairs, though every answer here is plain ASCII)
-    const bytes = [];
-    for (let i = 0; i < str.length; i++) {
-      let code = str.codePointAt(i);
-      if (code > 0xFFFF) i++;
-      if (code < 0x80) bytes.push(code);
-      else if (code < 0x800) bytes.push(0xC0 | (code >> 6), 0x80 | (code & 0x3F));
-      else if (code < 0x10000) bytes.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
-      else bytes.push(0xF0 | (code >> 18), 0x80 | ((code >> 12) & 0x3F), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
-    }
+    const bytes = utf8Encode(str);
 
     // Pad to a multiple of 64 bytes: 0x80, then zeros, then the original
     // bit-length as a big-endian 64-bit int (top 4 bytes are always 0 here
@@ -263,6 +288,45 @@
     }
 
     return H.map(x => x.toString(16).padStart(8, "0")).join("");
+  }
+  function hexToBytes(hex) {
+    const bytes = [];
+    for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.substr(i, 2), 16));
+    return bytes;
+  }
+  function bytesToHex(bytes) {
+    return bytes.map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // Expands a sha256Hex hex string into an n-byte keystream via repeated
+  // hashing (key:0, key:1, ...) — a hash's own 32-byte output is shorter
+  // than some ciphertexts might be, so this covers any length rather than
+  // assuming one hash call is always enough.
+  function expandKeystream(keyHex, n) {
+    const out = [];
+    for (let counter = 0; out.length < n; counter++) {
+      out.push(...hexToBytes(sha256Hex(keyHex + ":" + counter)));
+    }
+    return out.slice(0, n);
+  }
+
+  // SKYNET_ENDING.flagCipher isn't decryptable from anything in this file
+  // alone — the key is derived from n1-n7's own verified answers (each
+  // node's submittedAnswer only gets set once its answerHash check has
+  // already passed, see the flag-demo handler below), the same "assembled
+  // from earlier answers" idea CORE's own in-fiction cipher already uses.
+  // Reading the source gets you the ciphertext and the algorithm, neither
+  // of which helps without actually having solved the main chain — at
+  // which point the flag was earned anyway, not leaked.
+  function deriveEndingKey() {
+    const material = CHAIN.map(id => normalizeAnswer(byId[id].submittedAnswer || "")).join("|");
+    return sha256Hex(material);
+  }
+  function decryptEndingFlag() {
+    if (CHAIN.some(id => !byId[id].submittedAnswer)) return "(unavailable — this save is missing a recorded answer)";
+    const cipherBytes = hexToBytes(SKYNET_ENDING.flagCipher);
+    const keystream = expandKeystream(deriveEndingKey(), cipherBytes.length);
+    return utf8Decode(cipherBytes.map((b, i) => b ^ keystream[i]));
   }
 
   // Locked-node lore stand-in: every letter swapped for a random one,
@@ -618,7 +682,7 @@
     const msgEl = document.getElementById("shutdown-message");
     const flagEl = document.getElementById("shutdown-flag-value");
     if (msgEl) msgEl.textContent = SKYNET_ENDING.message;
-    if (flagEl) flagEl.textContent = SKYNET_ENDING.flag;
+    if (flagEl) flagEl.textContent = decryptEndingFlag();
     main.classList.add("shutdown");
   }
 
@@ -685,7 +749,7 @@
       // more consequential typed out than dumped on screen at once.
       typewriter(msgEl, SKYNET_ENDING.message, 38, () => {
         if (typingAudio) typingAudio.pause();
-        flagEl.textContent = SKYNET_ENDING.flag;
+        flagEl.textContent = decryptEndingFlag();
         main.classList.add("shutdown");
       });
     }, maxD * 1250 + 1630);
