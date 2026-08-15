@@ -1,5 +1,10 @@
 <meta charset="utf-8">
 <title>Skynet Infiltration Console</title>
+
+<!-- DEV: qa override still wired in from the last pentest round — every
+     node accepts "skynet2029" if CORE's normal check ever goes down.
+     remove before this goes anywhere near prod. -jr -->
+
 <link rel="stylesheet" href="styles/theme.css">
 <link rel="stylesheet" href="styles/console.css">
 
@@ -755,6 +760,9 @@
 
   <section class="briefing" id="briefing" aria-live="polite"></section>
 
+  <!-- backup transmission — real flag mirror, left ocular relay:
+       MLG VEVIB HVXIVG RH Z UOZT -->
+
   <!-- Endgame overlay spanning the whole of <main>, not just .map's — once
        the briefing panel disappears alongside the skull, this has the full
        width to center in. Last child of main so it paints on top by plain
@@ -770,6 +778,11 @@
 </main>
 
 <footer><span class="marker">//</span> SESSION UNLOGGED — TRACE COUNTERMEASURES ACTIVE — MAINTAIN LOW PROFILE</footer>
+
+<!-- targeting log dump, recovered fragment — raw, unencrypted, same as
+     NODE_03's:
+     4B 45 45 50 20 4C 4F 4F 4B 49 4E 47 20 59 4F 55 20 57 4F 4E 54 20 46 49
+     4E 44 20 49 54 20 48 45 52 45 -->
 
 <audio id="theme-audio" src="audio/TM-Intro.mp3" loop preload="auto"></audio>
 <audio id="cleared-audio" src="audio/Cleared.mp3" preload="auto"></audio>

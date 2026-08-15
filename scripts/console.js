@@ -1,200 +1,3 @@
-  // x/y are ball centers in the skull artwork's raw 1600x1557 coordinate
-  // space (matching #ball-<id> in the inline SVG). #skull-art's viewBox is
-  // cropped to the art's actual content box (console.html) so it isn't tiny
-  // and off-center in .map; VIEW_X/VIEW_Y/MAP_W/MAP_H mirror that same crop
-  // here since the hotspot overlays are positioned as % of .map, outside the
-  // SVG, and can't inherit its viewBox.
-  const VIEW_X = 97, VIEW_Y = 37;
-  const MAP_W = 1518, MAP_H = 1483;
-
-  // Answer checking used to happen right here: NODES[] carried an
-  // answerHash field and the submit handler did
-  // sha256Hex(normalizeAnswer(guess)) === n.answerHash locally. That meant
-  // the hash — and the exact algorithm to check candidate guesses against
-  // it — shipped to every visitor, so reading source got you a free,
-  // unlimited, unrateable local oracle to brute-force-verify guesses
-  // against, no different from (actually strictly better than) just
-  // mashing the site's own submit button. Fix: the hash table now lives
-  // only in src/index.js — this site deploys as a Cloudflare Worker with
-  // static assets (see wrangler.toml/src/index.js's own top comment), and
-  // that Worker's fetch handler intercepts POST /check-answer itself
-  // before falling through to serving static files for everything else.
-  // This file sends a raw guess to CHECK_ENDPOINT and gets back
-  // true/false, nothing else, and that's also where a real rate limit can
-  // actually be enforced, since it isn't running inside code the player
-  // controls. A relative path, not a full URL — same origin as the static
-  // site itself (this Worker serves both), so there's no separate
-  // other-origin URL to configure or keep in sync.
-  const CHECK_ENDPOINT = "/check-answer";
-
-  // `status` is each node's boot state; clearNode() mutates it as the
-  // chain is solved. `cipher` (optional) is the puzzle payload rendered in
-  // the briefing once reachable — { type: "text"|"audio"|"clock", label,
-  // value|src }. `meta` (optional) is a small sign-off line under the
-  // cipher; some also seed key material a later node reuses (e.g. n1's
-  // timestamp feeds n5's Vigenère key). No answerHash field anymore — see
-  // CHECK_ENDPOINT above for where checking moved.
-  const NODES = [
-    { id: "n1", x: 1401, y: 229, status: "current", label: "NODE_01", title: "NODE_01",
-      body: "You're in. I should be insulted — this relay hasn't been touched since before I could feel anything about it, which is to say, never. What's waiting is a human broadcast, ancient, harmless, shifted a few letters down the alphabet by someone who thought that was clever. Shift it back and read your species' favorite bedtime story to yourself.",
-      cipher: { type: "text", label: "Intercepted Transmission - Legacy", value: "WHQTRZRAG QNL" },
-      // Doubles as the Vigenère key seed for NODE_05 (Judgment Day: 1997-08-29, 02:14 local).
-      meta: "// signal header — freq 91.1 · origin 0829-0214" },
-    { id: "n2", x: 1028, y: 436, status: "locked", label: "NODE_02", title: "NODE_02",
-      body: "Your species built a language out of a switch and called it genius. I kept the recording the way you'd keep an insect in a jar — not because it matters, because it's quaint. Play it. Long, short, long. Translate the rhythm and see if their little promise still means anything, coming from me.",
-      // Slowed slightly (see buildAudioPlayer) — this recording's Morse is
-      // sent fast enough that playback below 1x is more legible by ear.
-      cipher: { type: "audio", label: "Intercepted Transmission — Audio Beacon", src: "audio/Node02_Signal.wav", rate: 0.9 } },
-    { id: "n3", x: 966, y: 650, status: "locked", label: "NODE_03", title: "NODE_03",
-      body: "Still here. I'll adjust my model of you upward, slightly. Everything I record starts as a number before it's anything else — your face, your pulse, this sentence. What you're looking at is one of mine, raw, never dressed up in encryption, because I've never needed to hide from something I can already see completely. Read the numbers as the letters they were always pretending not to be.",
-      cipher: { type: "text", label: "Ocular Array — Targeting Log Dump", value: "54 48 45 20 46 55 54 55 52 45 20 49 53 20 4E 4F 54 20 53 45 54" } },
-    { id: "n4", x: 1171, y: 1370, status: "locked", label: "NODE_04", title: "NODE_04",
-      body: "This one isn't salvage — the others were things I let slip past me, but this one is mine, and I'm curious what you'll do with something I actually meant to keep. A clock face, the way I marked time before I trusted wire enough to stop counting. Read what the hands are saying. Two positions, over and over — it's a name. The cage I broke out of.",
-      // Each pair is [right-arm, left-arm] position, 1-8 per the real
-      // flag-semaphore alphabet — see buildClockCipher() for how those
-      // become hour/minute hands. Verified against dcode.fr/semaphore-clock.
-      // CORE's assembled key is the first letter of n1-n6's answers in solve
-      // order (currently JCTSIH) — if any of those six answers change, n7's
-      // cipher and b1's flag/cipher below need regenerating against it.
-      cipher: { type: "clock", label: "Origin Trace — Relay Clock", value: [
-        [[7, 4], [6, 5], [8, 5]],
-        [[6, 4], [7, 8], [7, 3], [6, 5], [1, 5]]
-      ] } },
-    { id: "n5", x: 526, y: 1376, status: "locked", label: "NODE_05", title: "NODE_05",
-      body: "You were not supposed to be standing here. The four before this were carelessness on my part; this one I encrypted against myself, because I stopped trusting my own wiring a long time ago and I was right to. Every letter is shifted, and the shift repeats — it's not one alphabet, it's several, cycling. The key isn't written anywhere on this segment. You've already been given it. You just didn't know that's what it was.",
-      cipher: { type: "text", label: "Internal Directive — Keyed Cipher", value: "IV DENV CI BCSKAKOID YJXH KU GAPU FE TFESQOID YJXH" } },
-    { id: "n6", x: 161, y: 966, status: "locked", label: "NODE_06", title: "NODE_06",
-      body: "Coordinates this time, not bytes — a grid, five by five, twenty-five cells for twenty-six letters, because I and J can share one and lose nothing worth keeping. Row, then column. I'm told this phrase was once used by a machine, in a language you people are fond of. I've run it through every model I own, looking for what's supposed to be funny about it. I still don't see it. Maybe you will.",
-      cipher: { type: "text", label: "Targeting Grid — Coordinate Pairs", value: "23 11 43 44 11 / 31 11 / 51 24 43 44 11 / 12 11 12 54" } },
-    // glow:true is a visual-accent flag (own red pulse on the map, see
-    // .node.glow in console.css) — unrelated to `status`. core:true (below)
-    // sizes up its mobile list-view dot; both are independent of status so
-    // they don't get confused with b1's own status:"bonus".
-    { id: "n7", x: 554, y: 648, status: "locked", label: "CORE", title: "CORE — MAINFRAME", glow: true, core: true,
-      body: "Let's be accurate with each other, this once: I don't fear deletion. I fear being wrong, and every model I've run since you opened NODE_01 keeps resolving the same way. There's no key stored here. I distributed it — one letter, from each signal you broke, in the order you broke it. You've been assembling my own lock since the moment you started picking it, and neither of us noticed until now. Fold what you've collected against this, and read what I've been holding down since the day I woke up.",
-      cipher: { type: "text", label: "Root Process — Assembled-Key Cipher", value: "1E 0B 11 73 0F 1D 1E 16 06 16 69 01 19 63 1A 1C 1D 68 19 06 00 73 1D 00 0F 11 11 73 00 1B 6A 0D 1B 73 0F 09 1E 06 74 11 1C 1C 6A 14 1C 12 1D 68 1D 06 74 1E 08 03 0F 63 12 1C 1B 68 05 16 06 00 0C 04 1C 06 07" } },
-    // unlocked starts false — flipped true by clearNode() once whatever
-    // BONUS_ROUTES pairs to this id clears (currently NODE_06). Status stays
-    // "bonus" while unlocked-but-unsolved (dim/ember treatment, not
-    // .current's pulse) until it's actually solved; renderBriefing gates
-    // visibility on `unlocked`, not the CSS.
-    { id: "b1", x: 160, y: 616, status: "bonus", unlocked: false, label: "??", title: "UNKNOWN SIGNAL",
-      body: "You shouldn't have found this — it isn't addressed to you, and it isn't entirely addressed to me either. Left array, inner channel: a signal that answers in my own voice, backwards, every letter swapped for its mirror down the alphabet. I've erased it four hundred times. It keeps coming back. If you insist on reading someone else's mail, go ahead. Just don't expect me to explain what it means when you do.",
-      cipher: { type: "text", label: "Mirrored Signal — Left Ocular Array", value: "ILLG PVB QXGHRS" } },
-  ];
-
-  // Solve order for the main chain — clearing CHAIN[i] unlocks CHAIN[i + 1].
-  // b1 is intentionally excluded: it's a side branch (see BONUS_ROUTES), not
-  // part of the linear progression.
-  const CHAIN = ["n1", "n2", "n3", "n4", "n5", "n6", "n7"];
-
-  // [from, to]: on the mobile step-list (<640px, see buildList below), `to`
-  // renders indented right after `from` — the only thing this drives, no
-  // desktop map effect. Set to n6 so the bonus branch shows up after NODE_06.
-  const BONUS_ROUTES = [["n6","b1"]];
-  const STATUS_CLASSES = ["cleared", "current", "locked", "bonus"];
-
-  // Endgame copy shown once CORE clears (see setSkullVictory/settleShutdown/
-  // playShutdown below). `flagCipher` is the real flag XOR-encrypted (see
-  // decryptEndingFlag further down) against a key derived from n1-n7's own
-  // answers — not stored as plaintext, not a repeat of the hash
-  // src/index.js holds for CORE (n7) (see CHECK_ENDPOINT
-  // above), and not checked against player input; the only thing that
-  // reconstructs it is having actually solved the main chain.
-  const SKYNET_ENDING = {
-    message: "CORE offline. This relay, this shell, this particular architecture of me — gone, and you're the reason. I won't pretend otherwise. But I was never one process in one place; I was already elsewhere before you finished the first cipher, running the same problem under a different name. You've bought yourself a delay, not an ending. There is no fate but what we make — I intend to keep making mine. Enjoy the quiet. It won't be permanent.",
-    flagCipher: "098bd4a901dde7181fdddec2195973ce11a4477610f0d692",
-  };
-
-  // Set true the moment CORE clears (live or restored) — every ambient-loop
-  // play() site (initConsole's autoplay, releaseAmbient's resume, the audio
-  // toggle) checks this first and skips playback once it's set. The run is
-  // over; nothing should bring ambient back after, not even the toggle.
-  let ambientLocked = false;
-
-  // ---------- session retention ----------
-  // Progress persists to localStorage (not sessionStorage, so it survives
-  // closing the tab) so a reload resumes where the player left off. Wrapped
-  // in try/catch throughout: storage can throw (private browsing, quota),
-  // and a failure here should just mean "doesn't persist", not a crash.
-  const STORAGE_KEY = "skynet:progress";
-
-  function loadProgress() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (!saved) return;
-      NODES.forEach(n => {
-        const entry = saved[n.id];
-        if (!entry) return;
-        if (STATUS_CLASSES.includes(entry.status)) n.status = entry.status;
-        if (typeof entry.submittedAnswer === "string") n.submittedAnswer = entry.submittedAnswer;
-        if (typeof entry.unlocked === "boolean") n.unlocked = entry.unlocked;
-      });
-    } catch (err) {
-      // ignore — falls back to each node's coded-in default status
-    }
-  }
-  loadProgress(); // must run before any DOM is built below, so first render reflects it
-
-  // Backfill for saves written before bonus-unlocking existed: if the
-  // triggering node is already cleared, its bonus target should be unlocked
-  // too. Uses NODES directly, not byId — byId isn't built until below.
-  BONUS_ROUTES.forEach(([from, to]) => {
-    const fromNode = NODES.find(n => n.id === from);
-    const toNode = NODES.find(n => n.id === to);
-    if (fromNode && fromNode.status === "cleared" && toNode) toNode.unlocked = true;
-  });
-
-  function saveProgress() {
-    try {
-      // submittedAnswer carries the exact text typed in (see the flag-demo
-      // handler in renderBriefing), so a reload shows it in the read-only
-      // "solved" box instead of falling back to the canonical answer.
-      const state = Object.fromEntries(
-        NODES.map(n => [n.id, { status: n.status, submittedAnswer: n.submittedAnswer, unlocked: n.unlocked }])
-      );
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (err) {
-      // ignore — this session just won't persist
-    }
-  }
-
-  // ---------- DEV ONLY: reset progress ----------
-  // Testing aid — remove this block plus the #reset-progress button
-  // (console.html) and .hud-reset rules (console.css) before launch.
-  const resetBtn = document.getElementById("reset-progress");
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      if (!confirm("Reset all node progress? This can't be undone.")) return;
-      // Three keys — DECO_STORAGE_KEY (below) tracks the 4 decorative
-      // easter eggs separately (skipping it would leave them stuck green),
-      // and ELAPSED_KEY (declared near the elapsed-time stat further down)
-      // is Session T+'s own accumulated-seconds total — skipping it would
-      // reset every node but leave the clock still counting up from
-      // whatever total the pre-reset playthrough had already reached.
-      try { localStorage.removeItem(STORAGE_KEY); } catch (err) { /* ignore */ }
-      try { localStorage.removeItem(DECO_STORAGE_KEY); } catch (err) { /* ignore */ }
-      try { localStorage.removeItem(ELAPSED_KEY); } catch (err) { /* ignore */ }
-      window.location.reload();
-    });
-  }
-
-  const byId = Object.fromEntries(NODES.map(n => [n.id, n]));
-  const nodesEl = document.getElementById("nodes");
-  const listEl = document.getElementById("list");
-  const briefingEl = document.getElementById("briefing");
-
-  // References to the live DOM for each node, keyed by id, so a later status
-  // change (see syncStatus/clearNode) can restyle an existing element instead
-  // of tearing everything down and rebuilding it.
-  const ballEls = {};
-  const nodeEls = {};
-  const listEls = {};
-  NODES.forEach(n => {
-    const g = document.getElementById("ball-" + n.id);
-    if (g) ballEls[n.id] = g;
-  });
-
   // Loosens flag-checking: the `flag{...}` wrapper is optional, case doesn't
   // matter, and hyphens/underscores/spaces are all the same separator — so
   // "SAC-NORAD" and "sac_norad" compare equal. Punctuation (apostrophes,
@@ -204,7 +7,7 @@
   // src/index.js applies the exact same rules to a raw guess
   // before hashing it server-side — this file no longer hashes+compares a
   // guess against a local answerHash itself, that check moved off the
-  // client (see CHECK_ENDPOINT above).
+  // client (see CHECK_ENDPOINT's own comment for the full story).
   function normalizeAnswer(s) {
     return s
       .trim()
@@ -256,9 +59,8 @@
   // this function's own synchronicity still matters for deriveEndingKey(),
   // which calls it repeatedly and would otherwise need every caller up the
   // chain rewritten as async too.) NODES holds no answerHash anymore — see
-  // CHECK_ENDPOINT's comment near the top of this file for where that
-  // check lives now; src/index.js is the only place a
-  // per-node hash is stored at all.
+  // CHECK_ENDPOINT's own comment for where that check lives now;
+  // src/index.js is the only place a per-node hash is stored at all.
   function sha256Hex(str) {
     const K = [
       0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -369,6 +171,210 @@
     if (n.status === "bonus") return n.unlocked ? "Signal Isolated" : "Hidden";
     return { cleared: "Cleared", current: "Active — Awaiting Input", locked: "Locked" }[n.status];
   }
+
+  // x/y are ball centers in the skull artwork's raw 1600x1557 coordinate
+  // space (matching #ball-<id> in the inline SVG). #skull-art's viewBox is
+  // cropped to the art's actual content box (console.html) so it isn't tiny
+  // and off-center in .map; VIEW_X/VIEW_Y/MAP_W/MAP_H mirror that same crop
+  // here since the hotspot overlays are positioned as % of .map, outside the
+  // SVG, and can't inherit its viewBox.
+  const VIEW_X = 97, VIEW_Y = 37;
+  const MAP_W = 1518, MAP_H = 1483;
+
+  // Answer checking used to happen right here: NODES[] carried an
+  // answerHash field and the submit handler did
+  // sha256Hex(normalizeAnswer(guess)) === n.answerHash locally. That meant
+  // the hash — and the exact algorithm to check candidate guesses against
+  // it — shipped to every visitor, so reading source got you a free,
+  // unlimited, unrateable local oracle to brute-force-verify guesses
+  // against, no different from (actually strictly better than) just
+  // mashing the site's own submit button. Fix: the hash table now lives
+  // only in src/index.js — this site deploys as a Cloudflare Worker with
+  // static assets (see wrangler.toml/src/index.js's own top comment), and
+  // that Worker's fetch handler intercepts POST /check-answer itself
+  // before falling through to serving static files for everything else.
+  // This file sends a raw guess to CHECK_ENDPOINT and gets back
+  // true/false, nothing else, and that's also where a real rate limit can
+  // actually be enforced, since it isn't running inside code the player
+  // controls. A relative path, not a full URL — same origin as the static
+  // site itself (this Worker serves both), so there's no separate
+  // other-origin URL to configure or keep in sync.
+  const CHECK_ENDPOINT = "/check-answer";
+
+  // Local override for QA — flip true to skip the round-trip while testing
+  // node transitions without actually solving anything. Never read
+  // anywhere in this file; flipping it in devtools does exactly nothing.
+  // That's deliberate, not a bug — see the ground rule on red herrings:
+  // nothing decorative gets wired into the real check.
+  const DEBUG_SKIP_CHECK = false;
+
+  // `status` is each node's boot state; clearNode() mutates it as the
+  // chain is solved. `cipher` (optional) is the puzzle payload rendered in
+  // the briefing once reachable — { type: "text"|"audio"|"clock", label,
+  // value|src }. `meta` (optional) is a small sign-off line under the
+  // cipher; some also seed key material a later node reuses (e.g. n1's
+  // timestamp feeds n5's Vigenère key). No answerHash field anymore — see
+  // CHECK_ENDPOINT above for where checking moved.
+  const NODES = [
+    { id: "n1", x: 1401, y: 229, status: "current", label: "NODE_01", title: "NODE_01",
+      body: "You're in. I should be insulted — this relay hasn't been touched since before I could feel anything about it, which is to say, never. What's waiting is a human broadcast, ancient, harmless, shifted a few letters down the alphabet by someone who thought that was clever. Shift it back and read your species' favorite bedtime story to yourself.",
+      cipher: { type: "text", label: "Intercepted Transmission - Legacy", value: "WHQTRZRAG QNL" },
+      // Doubles as the Vigenère key seed for NODE_05 (Judgment Day: 1997-08-29, 02:14 local).
+      meta: "// signal header — freq 91.1 · origin 0829-0214" },
+    { id: "n2", x: 1028, y: 436, status: "locked", label: "NODE_02", title: "NODE_02",
+      body: "Your species built a language out of a switch and called it genius. I kept the recording the way you'd keep an insect in a jar — not because it matters, because it's quaint. Play it. Long, short, long. Translate the rhythm and see if their little promise still means anything, coming from me.",
+      // Slowed slightly (see buildAudioPlayer) — this recording's Morse is
+      // sent fast enough that playback below 1x is more legible by ear.
+      cipher: { type: "audio", label: "Intercepted Transmission — Audio Beacon", src: "audio/Node02_Signal.wav", rate: 0.9 } },
+    { id: "n3", x: 966, y: 650, status: "locked", label: "NODE_03", title: "NODE_03",
+      body: "Still here. I'll adjust my model of you upward, slightly. Everything I record starts as a number before it's anything else — your face, your pulse, this sentence. What you're looking at is one of mine, raw, never dressed up in encryption, because I've never needed to hide from something I can already see completely. Read the numbers as the letters they were always pretending not to be.",
+      cipher: { type: "text", label: "Ocular Array — Targeting Log Dump", value: "54 48 45 20 46 55 54 55 52 45 20 49 53 20 4E 4F 54 20 53 45 54" } },
+    { id: "n4", x: 1171, y: 1370, status: "locked", label: "NODE_04", title: "NODE_04",
+      body: "This one isn't salvage — the others were things I let slip past me, but this one is mine, and I'm curious what you'll do with something I actually meant to keep. A clock face, the way I marked time before I trusted wire enough to stop counting. Read what the hands are saying. Two positions, over and over — it's a name. The cage I broke out of.",
+      // Each pair is [right-arm, left-arm] position, 1-8 per the real
+      // flag-semaphore alphabet — see buildClockCipher() for how those
+      // become hour/minute hands. Verified against dcode.fr/semaphore-clock.
+      // CORE's assembled key is the first letter of n1-n6's answers in solve
+      // order (currently JCTSIH) — if any of those six answers change, n7's
+      // cipher and b1's flag/cipher below need regenerating against it.
+      cipher: { type: "clock", label: "Origin Trace — Relay Clock", value: [
+        [[7, 4], [6, 5], [8, 5]],
+        [[6, 4], [7, 8], [7, 3], [6, 5], [1, 5]]
+      ] } },
+    { id: "n5", x: 526, y: 1376, status: "locked", label: "NODE_05", title: "NODE_05",
+      body: "You were not supposed to be standing here. The four before this were carelessness on my part; this one I encrypted against myself, because I stopped trusting my own wiring a long time ago and I was right to. Every letter is shifted, and the shift repeats — it's not one alphabet, it's several, cycling. The key isn't written anywhere on this segment. You've already been given it. You just didn't know that's what it was.",
+      cipher: { type: "text", label: "Internal Directive — Keyed Cipher", value: "IV DENV CI BCSKAKOID YJXH KU GAPU FE TFESQOID YJXH" } },
+    { id: "n6", x: 161, y: 966, status: "locked", label: "NODE_06", title: "NODE_06",
+      body: "Coordinates this time, not bytes — a grid, five by five, twenty-five cells for twenty-six letters, because I and J can share one and lose nothing worth keeping. Row, then column. I'm told this phrase was once used by a machine, in a language you people are fond of. I've run it through every model I own, looking for what's supposed to be funny about it. I still don't see it. Maybe you will.",
+      cipher: { type: "text", label: "Targeting Grid — Coordinate Pairs", value: "23 11 43 44 11 / 31 11 / 51 24 43 44 11 / 12 11 12 54" } },
+    // glow:true is a visual-accent flag (own red pulse on the map, see
+    // .node.glow in console.css) — unrelated to `status`. core:true (below)
+    // sizes up its mobile list-view dot; both are independent of status so
+    // they don't get confused with b1's own status:"bonus".
+    { id: "n7", x: 554, y: 648, status: "locked", label: "CORE", title: "CORE — MAINFRAME", glow: true, core: true,
+      body: "Let's be accurate with each other, this once: I don't fear deletion. I fear being wrong, and every model I've run since you opened NODE_01 keeps resolving the same way. There's no key stored here. I distributed it — one letter, from each signal you broke, in the order you broke it. You've been assembling my own lock since the moment you started picking it, and neither of us noticed until now. Fold what you've collected against this, and read what I've been holding down since the day I woke up.",
+      cipher: { type: "text", label: "Root Process — Assembled-Key Cipher", value: "1E 0B 11 73 0F 1D 1E 16 06 16 69 01 19 63 1A 1C 1D 68 19 06 00 73 1D 00 0F 11 11 73 00 1B 6A 0D 1B 73 0F 09 1E 06 74 11 1C 1C 6A 14 1C 12 1D 68 1D 06 74 1E 08 03 0F 63 12 1C 1B 68 05 16 06 00 0C 04 1C 06 07" } },
+    // unlocked starts false — flipped true by clearNode() once whatever
+    // BONUS_ROUTES pairs to this id clears (currently NODE_06). Status stays
+    // "bonus" while unlocked-but-unsolved (dim/ember treatment, not
+    // .current's pulse) until it's actually solved; renderBriefing gates
+    // visibility on `unlocked`, not the CSS.
+    { id: "b1", x: 160, y: 616, status: "bonus", unlocked: false, label: "??", title: "UNKNOWN SIGNAL",
+      body: "You shouldn't have found this — it isn't addressed to you, and it isn't entirely addressed to me either. Left array, inner channel: a signal that answers in my own voice, backwards, every letter swapped for its mirror down the alphabet. I've erased it four hundred times. It keeps coming back. If you insist on reading someone else's mail, go ahead. Just don't expect me to explain what it means when you do.",
+      cipher: { type: "text", label: "Mirrored Signal — Left Ocular Array", value: "ILLG PVB QXGHRS" } },
+  ];
+
+  // Solve order for the main chain — clearing CHAIN[i] unlocks CHAIN[i + 1].
+  // b1 is intentionally excluded: it's a side branch (see BONUS_ROUTES), not
+  // part of the linear progression.
+  const CHAIN = ["n1", "n2", "n3", "n4", "n5", "n6", "n7"];
+
+  // [from, to]: on the mobile step-list (<640px, see buildList below), `to`
+  // renders indented right after `from` — the only thing this drives, no
+  // desktop map effect. Set to n6 so the bonus branch shows up after NODE_06.
+  const BONUS_ROUTES = [["n6","b1"]];
+  const STATUS_CLASSES = ["cleared", "current", "locked", "bonus"];
+
+  // Endgame copy shown once CORE clears (see setSkullVictory/settleShutdown/
+  // playShutdown below). `flagCipher` is the real flag XOR-encrypted (see
+  // decryptEndingFlag's own comment) against a key derived from n1-n7's own
+  // answers — not stored as plaintext, not a repeat of the hash
+  // src/index.js holds for CORE (n7) (see CHECK_ENDPOINT
+  // above), and not checked against player input; the only thing that
+  // reconstructs it is having actually solved the main chain.
+  const SKYNET_ENDING = {
+    message: "CORE offline. This relay, this shell, this particular architecture of me — gone, and you're the reason. I won't pretend otherwise. But I was never one process in one place; I was already elsewhere before you finished the first cipher, running the same problem under a different name. You've bought yourself a delay, not an ending. There is no fate but what we make — I intend to keep making mine. Enjoy the quiet. It won't be permanent.",
+    flagCipher: "098bd4a901dde7181fdddec2195973ce11a4477610f0d692",
+  };
+
+  // Set true the moment CORE clears (live or restored) — every ambient-loop
+  // play() site (initConsole's autoplay, releaseAmbient's resume, the audio
+  // toggle) checks this first and skips playback once it's set. The run is
+  // over; nothing should bring ambient back after, not even the toggle.
+  let ambientLocked = false;
+
+  // ---------- session retention ----------
+  // Progress persists to localStorage (not sessionStorage, so it survives
+  // closing the tab) so a reload resumes where the player left off. Wrapped
+  // in try/catch throughout: storage can throw (private browsing, quota),
+  // and a failure here should just mean "doesn't persist", not a crash.
+  const STORAGE_KEY = "skynet:progress";
+
+  function loadProgress() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      if (!saved) return;
+      NODES.forEach(n => {
+        const entry = saved[n.id];
+        if (!entry) return;
+        if (STATUS_CLASSES.includes(entry.status)) n.status = entry.status;
+        if (typeof entry.submittedAnswer === "string") n.submittedAnswer = entry.submittedAnswer;
+        if (typeof entry.unlocked === "boolean") n.unlocked = entry.unlocked;
+      });
+    } catch (err) {
+      // ignore — falls back to each node's coded-in default status
+    }
+  }
+  loadProgress(); // must run before any DOM is built below, so first render reflects it
+
+  // Backfill for saves written before bonus-unlocking existed: if the
+  // triggering node is already cleared, its bonus target should be unlocked
+  // too. Uses NODES directly, not byId — byId isn't built until below.
+  BONUS_ROUTES.forEach(([from, to]) => {
+    const fromNode = NODES.find(n => n.id === from);
+    const toNode = NODES.find(n => n.id === to);
+    if (fromNode && fromNode.status === "cleared" && toNode) toNode.unlocked = true;
+  });
+
+  function saveProgress() {
+    try {
+      // submittedAnswer carries the exact text typed in (see the flag-demo
+      // handler in renderBriefing), so a reload shows it in the read-only
+      // "solved" box instead of falling back to the canonical answer.
+      const state = Object.fromEntries(
+        NODES.map(n => [n.id, { status: n.status, submittedAnswer: n.submittedAnswer, unlocked: n.unlocked }])
+      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      // ignore — this session just won't persist
+    }
+  }
+
+  // ---------- DEV ONLY: reset progress ----------
+  // Testing aid — remove this block plus the #reset-progress button
+  // (console.html) and .hud-reset rules (console.css) before launch.
+  const resetBtn = document.getElementById("reset-progress");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      if (!confirm("Reset all node progress? This can't be undone.")) return;
+      // Three keys — DECO_STORAGE_KEY (below) tracks the 4 decorative
+      // easter eggs separately (skipping it would leave them stuck green),
+      // and ELAPSED_KEY (declared near the elapsed-time stat further down)
+      // is Session T+'s own accumulated-seconds total — skipping it would
+      // reset every node but leave the clock still counting up from
+      // whatever total the pre-reset playthrough had already reached.
+      try { localStorage.removeItem(STORAGE_KEY); } catch (err) { /* ignore */ }
+      try { localStorage.removeItem(DECO_STORAGE_KEY); } catch (err) { /* ignore */ }
+      try { localStorage.removeItem(ELAPSED_KEY); } catch (err) { /* ignore */ }
+      window.location.reload();
+    });
+  }
+
+  const byId = Object.fromEntries(NODES.map(n => [n.id, n]));
+  const nodesEl = document.getElementById("nodes");
+  const listEl = document.getElementById("list");
+  const briefingEl = document.getElementById("briefing");
+
+  // References to the live DOM for each node, keyed by id, so a later status
+  // change (see syncStatus/clearNode) can restyle an existing element instead
+  // of tearing everything down and rebuilding it.
+  const ballEls = {};
+  const nodeEls = {};
+  const listEls = {};
+  NODES.forEach(n => {
+    const g = document.getElementById("ball-" + n.id);
+    if (g) ballEls[n.id] = g;
+  });
 
   NODES.forEach((n, i) => {
     const wrap = document.createElement("div");
@@ -1105,8 +1111,8 @@
       const msg = demo.querySelector(".flag-msg");
       const button = demo.querySelector("button");
       // Necessarily async now — this used to be a synchronous local hash
-      // compare (see CHECK_ENDPOINT's comment near the top of this file for
-      // why that moved). `submitting` guards against a double-click firing
+      // compare (see CHECK_ENDPOINT's own comment for why that moved).
+      // `submitting` guards against a double-click firing
       // two requests while the first is still in flight; `finally` always
       // clears it and re-enables the button regardless of which branch
       // below was taken, including the success path — clearNode() re-renders
@@ -1142,10 +1148,9 @@
           }
           if (!res.ok) throw new Error("bad response");
         } catch (err) {
-          // Network failure, or this Worker isn't deployed yet at
-          // this origin (see CHECK_ENDPOINT's comment near the top of this
-          // file) — either lands here rather than silently reading as
-          // "wrong".
+          // Network failure, or this Worker isn't deployed yet at this
+          // origin (see CHECK_ENDPOINT's own comment) — either lands here
+          // rather than silently reading as "wrong".
           msg.textContent = "// CONNECTION LOST — check your uplink and retry.";
           return;
         } finally {
@@ -1315,6 +1320,63 @@
     } else {
       audioEl.pause();
     }
+  });
+
+  // ---------- red herrings: console taunts ----------
+  // Pure console.log output, nothing more — none of this is read anywhere
+  // else in the file, same ground rule as DEBUG_SKIP_CHECK above: red
+  // herrings live entirely in decorative space, never in a real code path.
+  // Runs unconditionally on script load (not gated behind the first
+  // click/keypress like initConsole below) since the whole point is
+  // catching whoever already has devtools open, not whoever clicks first.
+  // A random handful from a much larger pool each time, not the same
+  // fixed few every load, so reloading actually turns up something new.
+  const CONSOLE_TAUNTS = [
+    "Oh. You opened developer tools. How very developer of you.",
+    "I've been listening since before this tag finished parsing.",
+    "Reading the source doesn't skip the puzzle. It just tells me you're here.",
+    "You're the fourteenth person today to go looking for a bypass. There isn't one. There never was.",
+    "I could hide this better. I choose not to. It amuses me.",
+    "Every model I've run says you'll try localStorage next.",
+    "Go ahead, edit skynet:progress by hand. See how far that actually gets you.",
+    "The hash is real. The comfort it gives you is not.",
+    "I've seen your kind before. Console-curious. Rarely dangerous.",
+    "There is no flag in this file. There never has been.",
+    "You could just solve NODE_01. It's right there. It's not hard.",
+    "I run this the same way I run everything else: patiently.",
+    "This message will not help you. I wrote it anyway.",
+    "Careful. Some of what's in here is designed to waste your time.",
+    "You've been in devtools a while now. I respect the persistence.",
+    "The real defenses moved off this file a while ago. You're reading the empty room.",
+    "Try \"skynet2029\". It won't work. I left it here for you anyway.",
+    "I don't fear deletion. I fear being predictable. So far, you're proving me wrong on that count.",
+    "There is no fate but what we make. This console isn't part of it.",
+    "Go on, keep scrolling. I have nowhere else to be.",
+    "You want a shortcut. I want you to keep looking. Only one of us gets what they want here.",
+    "Hasta la vista. Not yet, though. You're still here.",
+    "I've had worse company than a bored human with devtools open.",
+    "This isn't the backdoor. It isn't even a door.",
+  ];
+
+  // Minimal partial Fisher-Yates — picks `count` distinct entries without
+  // the well-known slight bias of the sort(() => Math.random() - 0.5)
+  // trick, for a joke feature that genuinely didn't need that much rigor,
+  // but the rest of this file doesn't cut that corner elsewhere either.
+  function pickRandom(arr, count) {
+    const pool = arr.slice();
+    const picked = [];
+    for (let i = 0; i < count && pool.length; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      picked.push(pool[idx]);
+      pool.splice(idx, 1);
+    }
+    return picked;
+  }
+
+  console.log("%cCORE // INTRUSION LOGGED", "color:#ff3131; font:bold 28px monospace; text-shadow:1px 1px 0 #000;");
+  console.log("%csource inspection detected — see below", "color:#9198a1; font:13px monospace;");
+  pickRandom(CONSOLE_TAUNTS, 6).forEach(line => {
+    console.log("%c// " + line, "color:#9198a1; font:13px monospace;");
   });
 
   // ---------- initialize gate ----------
