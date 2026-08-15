@@ -1,31 +1,38 @@
-// Skynet CTF — answer-checking Pages Function.
+// Skynet CTF — the site's actual live Worker entry point.
 //
-// This exists to close one specific gap: scripts/console.js used to ship
-// n.answerHash straight to the browser and compare
-// sha256Hex(normalizeAnswer(guess)) === n.answerHash locally. Anyone who
-// viewed source had the hash and the exact normalize/hash algorithm in
-// hand, so they could brute-force-verify candidate guesses against their
-// own SHA-256 implementation (or the site's own submit button, which had
-// no rate limit either) as many times as they wanted, for free, with no
-// puzzle-solving required for the verification step itself.
+// This project deploys as a Cloudflare "Worker with static assets" (its
+// dashboard's own build config runs `npx wrangler deploy`, driven by
+// wrangler.toml at the repo root) — not Cloudflare Pages. That distinction
+// matters: Pages Functions' functions/*.js file-based routing does not
+// apply here at all, and an earlier version of this file lived at
+// functions/check-answer.js on the (incorrect) assumption that it did.
+// With no wrangler.toml present, wrangler's zero-config fallback just
+// serves the whole repo as static files — which is what silently shipped
+// instead, breaking answer submission entirely (POST /check-answer had
+// nothing to route to, 404) and, worse, serving that old file's own
+// source — hashes included — as a plain public file. Same class of
+// exposure the whole server-side move was meant to close, just relocated,
+// plus the feature not working at all. This file plus wrangler.toml's
+// `main`/`[assets]` config fixes both: this Worker's fetch handler runs
+// FIRST for every request now, decides whether to handle it directly
+// (POST /check-answer) or hand it to the ASSETS binding to serve as a
+// static file — and .assetsignore (repo root) keeps this file itself,
+// wrangler.toml, and other non-public files out of what ASSETS can ever
+// serve, so there's no file to fetch the source of this time.
 //
-// The fix isn't "hide the check better" — anything that runs in the
-// player's own browser can always be read back out of it, full stop, no
-// matter how it's obfuscated. The fix is to not ship the check to the
-// browser at all. This file holds the hashes instead; the browser now
-// sends a raw guess and gets back nothing but true/false. There's no hash
-// to extract, and — the part client-side code structurally cannot do at
-// all — this enforces a real rate limit, because the enforcement lives
-// somewhere the player doesn't control.
-//
-// Cloudflare Pages Function, not a standalone Worker: file-based routing
-// means this file alone, at functions/check-answer.js, becomes the
-// /check-answer route — no separate deploy step, it ships automatically
-// with every normal Pages build (the same git push that already deploys
-// index.html/console.html). Same origin as the site itself, so unlike a
-// cross-origin Worker this needs no CORS headers or OPTIONS-preflight
-// handling at all: browsers only enforce CORS for cross-origin requests,
-// and fetch("/check-answer") from console.html never leaves this origin.
+// Everything below the routing at the bottom is otherwise the same
+// reasoning as the Pages Functions version it replaces: n.answerHash used
+// to ship straight to the browser, along with the exact algorithm to
+// check a guess against it, so view-source was a free, unlimited,
+// unrateable local oracle — no different from (actually strictly better
+// than) mashing the site's own submit button, which also had no rate
+// limit. The fix isn't hiding the check better; nothing running in the
+// player's own browser can ever not be readable from it. The fix is not
+// shipping the check to the browser at all — this file holds the hashes
+// server-side instead, the browser sends a raw guess and gets back only
+// true/false, and a real rate limit becomes possible for the first time
+// because the enforcement finally lives somewhere the player doesn't
+// control.
 //
 // Explicit non-goal: this does not stop someone from directly editing
 // their own localStorage / calling clearNode() from devtools to fake a
@@ -68,8 +75,8 @@ function normalizeAnswer(s) {
 // Real Web Crypto, not console.js's hand-rolled sha256Hex — that version
 // exists purely because crypto.subtle refuses to run outside a secure
 // context and throws on file://, which local dev over file:// needs to
-// avoid. A Pages Function always runs server-side in a secure context, so
-// the native implementation just works and there's no reason to port the
+// avoid. A Worker always runs server-side in a secure context, so the
+// native implementation just works and there's no reason to port the
 // hand-written one over.
 async function sha256Hex(str) {
   const bytes = new TextEncoder().encode(str);
@@ -129,11 +136,7 @@ function json(body, status) {
   });
 }
 
-// Pages Functions route per HTTP method — this file exporting only
-// onRequestPost means GET/PUT/etc. to /check-answer fall through to
-// Cloudflare's normal "no matching function, no static asset" 404,
-// without any explicit method-not-allowed handling needed here.
-export async function onRequestPost({ request, env }) {
+async function handleCheckAnswer(request, env) {
   let body;
   try {
     body = await request.json();
@@ -151,12 +154,11 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "unknown_node" }, 404);
   }
 
-  // env.RATE_LIMIT is the KV binding — created via the Cloudflare
-  // dashboard's Pages project settings (Functions -> KV namespace
-  // bindings), not by this code. See functions/README.md for the
-  // one-time setup. Missing binding (not set up yet) fails safe: treated
-  // as "always allow" rather than crashing every guess, since a
-  // misconfigured rate limiter shouldn't take the whole puzzle down.
+  // env.RATE_LIMIT is the KV binding — added to wrangler.toml separately,
+  // once the namespace's real id is known (see the comment there). Missing
+  // binding fails safe: treated as "always allow" rather than crashing
+  // every guess, since a misconfigured rate limiter shouldn't take the
+  // whole puzzle down.
   if (env.RATE_LIMIT) {
     // CF-Connecting-IP is set by Cloudflare itself at their edge, after
     // the request has already passed through their network — a client can
@@ -174,3 +176,18 @@ export async function onRequestPost({ request, env }) {
   const correct = hash === ANSWER_HASHES[nodeId];
   return json({ correct }, 200);
 }
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (request.method === "POST" && url.pathname === "/check-answer") {
+      return handleCheckAnswer(request, env);
+    }
+    // Everything else — index.html, console.html, styles/, scripts/,
+    // audio/, all of it — is a plain static file. env.ASSETS is the
+    // binding wrangler.toml's [assets] block sets up; this Worker only
+    // exists to intercept the one route above, not to reimplement static
+    // file serving.
+    return env.ASSETS.fetch(request);
+  },
+};

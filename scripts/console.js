@@ -14,17 +14,17 @@
   // it — shipped to every visitor, so reading source got you a free,
   // unlimited, unrateable local oracle to brute-force-verify guesses
   // against, no different from (actually strictly better than) just
-  // mashing the site's own submit button. See functions/README.md for the
-  // full reasoning. Fix: the hash table now lives only in
-  // functions/check-answer.js, a Cloudflare Pages Function that never
-  // ships to the browser — this file sends a raw guess to CHECK_ENDPOINT
-  // and gets back true/false, nothing else, and that's also where a real
-  // rate limit can actually be enforced, since it isn't running inside
-  // code the player controls. A relative path, not a full URL — Pages
-  // Functions deploy to the same origin as the static site itself
-  // (file-based routing: functions/check-answer.js *is* the /check-answer
-  // route), so unlike a separately-hosted backend there's no other-origin
-  // URL to configure or keep in sync with wherever this ends up deployed.
+  // mashing the site's own submit button. Fix: the hash table now lives
+  // only in src/index.js — this site deploys as a Cloudflare Worker with
+  // static assets (see wrangler.toml/src/index.js's own top comment), and
+  // that Worker's fetch handler intercepts POST /check-answer itself
+  // before falling through to serving static files for everything else.
+  // This file sends a raw guess to CHECK_ENDPOINT and gets back
+  // true/false, nothing else, and that's also where a real rate limit can
+  // actually be enforced, since it isn't running inside code the player
+  // controls. A relative path, not a full URL — same origin as the static
+  // site itself (this Worker serves both), so there's no separate
+  // other-origin URL to configure or keep in sync.
   const CHECK_ENDPOINT = "/check-answer";
 
   // `status` is each node's boot state; clearNode() mutates it as the
@@ -98,7 +98,7 @@
   // playShutdown below). `flagCipher` is the real flag XOR-encrypted (see
   // decryptEndingFlag further down) against a key derived from n1-n7's own
   // answers — not stored as plaintext, not a repeat of the hash
-  // functions/check-answer.js holds for CORE (n7) (see CHECK_ENDPOINT
+  // src/index.js holds for CORE (n7) (see CHECK_ENDPOINT
   // above), and not checked against player input; the only thing that
   // reconstructs it is having actually solved the main chain.
   const SKYNET_ENDING = {
@@ -196,7 +196,7 @@
   // commas, ...) is stripped so "can't" isn't penalized against a canonical
   // "cant". Two call sites: deriveEndingKey() below applies this to
   // submittedAnswer before hashing it into the ending-flag key, and
-  // functions/check-answer.js applies the exact same rules to a raw guess
+  // src/index.js applies the exact same rules to a raw guess
   // before hashing it server-side — this file no longer hashes+compares a
   // guess against a local answerHash itself, that check moved off the
   // client (see CHECK_ENDPOINT above).
@@ -252,7 +252,7 @@
   // which calls it repeatedly and would otherwise need every caller up the
   // chain rewritten as async too.) NODES holds no answerHash anymore — see
   // CHECK_ENDPOINT's comment near the top of this file for where that
-  // check lives now; functions/check-answer.js is the only place a
+  // check lives now; src/index.js is the only place a
   // per-node hash is stored at all.
   function sha256Hex(str) {
     const K = [
@@ -331,7 +331,7 @@
 
   // SKYNET_ENDING.flagCipher isn't decryptable from anything in this file
   // alone — the key is derived from n1-n7's own verified answers (each
-  // node's submittedAnswer only gets set once functions/check-answer.js
+  // node's submittedAnswer only gets set once src/index.js
   // has confirmed it correct, see the flag-demo handler below), the same
   // "assembled from earlier answers" idea CORE's own in-fiction cipher
   // already uses. Reading the source gets you the ciphertext and the
@@ -1137,7 +1137,7 @@
           }
           if (!res.ok) throw new Error("bad response");
         } catch (err) {
-          // Network failure, or the Pages Function isn't deployed yet at
+          // Network failure, or this Worker isn't deployed yet at
           // this origin (see CHECK_ENDPOINT's comment near the top of this
           // file) — either lands here rather than silently reading as
           // "wrong".
@@ -1151,7 +1151,7 @@
         if (result.correct) {
           msg.textContent = "// ACCESS GRANTED — segment neutralized.";
           n.submittedAnswer = val; // exactly what was typed — read back below once cleared
-          clearNode(n.id); // functions/check-answer.js confirmed it; this file never sees a hash to check itself
+          clearNode(n.id); // src/index.js confirmed it; this file never sees a hash to check itself
         } else {
           msg.textContent = "// ACCESS DENIED — incorrect.";
         }
@@ -1164,7 +1164,7 @@
     // plaintext answer to fall back to if submittedAnswer is missing (e.g.
     // an older save from before this field existed) — this file doesn't
     // hold a per-node hash to fall back on either anymore, only
-    // functions/check-answer.js does, and a hash can't be turned back into
+    // src/index.js does, and a hash can't be turned back into
     // the flag regardless of which side of the network it lives on.
     if (n.status === "cleared") {
       const demo = document.createElement("div");
