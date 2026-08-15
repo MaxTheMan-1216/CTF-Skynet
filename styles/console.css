@@ -100,18 +100,21 @@
     display: grid;
     grid-template-columns: 1fr min(340px, 32vw);
     /* min-height:0 pins main to exactly fill the remaining viewport height
-       so the scroll wheel scrolls the skeleton, not the whole page: with
-       main fixed, .map-wrap's row is fixed too, so an oversized .map
-       overflows inside .map-wrap instead — its own overflow-y:auto (below)
-       is what turns that into an internally-scrollable box. */
+       rather than growing to fit its content (the flexbox default). .map
+       itself no longer needs this for its own sake — its size is now
+       provably bounded to fit inside .map-wrap regardless (see .map's own
+       max-width comment below) — but this still keeps main, and so the
+       whole page, from growing past the viewport just because .briefing's
+       content happens to be tall on a given node. */
     min-height: 0;
   }
   @media (max-width: 760px) {
-    /* Below this width main stacks to one column, so "scroll wheel only
-       scrolls the skeleton" no longer applies (nothing else to hold still
-       against) — opt back into the page scrolling normally instead.
-       Same specificity as the base rule, so this has to come after it in
-       source order to win; the .map-wrap/.map overrides below follow suit. */
+    /* Below this width main stacks to one column and the page is left free
+       to grow/scroll normally instead of staying pinned to the viewport —
+       there's no side-by-side layout left at that point for pinning main
+       to buy anything. Same specificity as the base rule, so this has to
+       come after it in source order to win; the .map override below
+       follows suit. */
     main { grid-template-columns: 1fr; flex: none; min-height: auto; }
   }
 
@@ -171,18 +174,16 @@
 
   .map-wrap {
     position: relative;
-    overflow-x: auto;
-    /* auto (not hidden) makes this the scroll container: main is pinned to
-       a fixed height, so an oversized .map overflows inside this box and
-       the wheel/scrollbar reaches it as the nearest scrollable ancestor. */
-    overflow-y: auto;
     border-right: 1px solid var(--panel-edge);
     display: flex;
-    /* safe, not plain center: plain center can shift .map above this box's
-       top edge when it overflows, and a scroll container's range starts at
-       that shifted position — permanently stranding the part pushed above
-       it. "safe" falls back to start-alignment instead so the whole skull
-       stays reachable. */
+    /* safe, not plain center: belt-and-suspenders against .map ever
+       overflowing this box (it shouldn't — see .map's own max-width
+       comment below, which bounds it to fit here by construction — but if
+       that math is ever wrong, plain center would shift .map above this
+       box's top edge with no way to scroll back up to see it, and safe
+       falls back to start-alignment instead). No overflow:auto/scrollbar
+       here anymore — with .map genuinely unable to exceed this box, there
+       was nothing left for one to ever catch. */
     align-items: safe center;
     /* size, not inline-size: .map needs a cqh (container-query-height) unit
        below to size itself against this box's real height — inline-size
@@ -193,8 +194,6 @@
        find its own, so there's no circularity for containment to trip over. */
     container-type: size;
   }
-  .map-wrap::-webkit-scrollbar { height: 8px; }
-  .map-wrap::-webkit-scrollbar-thumb { background: var(--panel-edge); }
 
   /* ---------- endgame, part 1: right panel exits, skull re-centers ---------- */
   /* Added the instant CORE's flag is confirmed correct (clearNode in
@@ -323,12 +322,12 @@
 
   @media (max-width: 760px) {
     /* Same specificity as the base rule, so this has to come after it in
-       source order to win. A height cap stops being right once the layout
-       stacks to one column and the whole page scrolls normally instead of
-       just .map-wrap internally — width cap instead. (cqh would be moot
-       here anyway: main drops flex:1 at this breakpoint, so .map-wrap no
-       longer has a definite, content-independent height for size
-       containment to establish in the first place.) */
+       source order to win. A height cap stops being the right thing to
+       size off once the layout stacks to one column and the page is left
+       free to grow — width cap instead. (cqh would be moot here anyway:
+       main drops flex:1 at this breakpoint, so .map-wrap no longer has a
+       definite, content-independent height for size containment to
+       establish in the first place.) */
     .map { max-width: min(97.5vw, 700px); } /* same 25% bump as the desktop cap above */
 
     /* .map-wrap already spans the full width in this single-column layout,

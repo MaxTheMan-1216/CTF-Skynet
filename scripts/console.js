@@ -93,7 +93,7 @@
   // reconstructs it is having actually solved the main chain.
   const SKYNET_ENDING = {
     message: "CORE offline. This relay, this shell, this particular architecture of me — gone, and you're the reason. I won't pretend otherwise. But I was never one process in one place; I was already elsewhere before you finished the first cipher, running the same problem under a different name. You've bought yourself a delay, not an ending. There is no fate but what we make — I intend to keep making mine. Enjoy the quiet. It won't be permanent.",
-    flagCipher: "ad4390ed09c5f50f14ccf5e9084e6cca16ab526711b1aac6d03cda8af0cbc0709fd3df77",
+    flagCipher: "098bd4a901dde7181fdddec2195973ce11a4477610f0d692",
   };
 
   // Set true the moment CORE clears (live or restored) — every ambient-loop
@@ -731,6 +731,26 @@
     setTimeout(() => {
       const textEl = document.querySelector(".shutdown-text");
       if (textEl) textEl.classList.add("visible");
+
+      // .shutdown (not just .shutdown-play) from this instant on — its
+      // `#skull-art { opacity: 0 }` rule in console.css is the only
+      // shutdown-panel rule that ISN'T also paired to .shutdown-play, on
+      // the assumption every path's own reverse-draw independently finishes
+      // retracting (stroke-dashoffset:1) by exactly now. That held true in
+      // practice except for a few paths — small ball-icon inner circles,
+      // going by what stuck around — that stayed visibly drawn past this
+      // point, overlapping the typewriter that starts right below. Adding
+      // .shutdown here (rather than only once the typewriter's `done`
+      // fires, further down) forces the whole skull hidden as a hard
+      // fallback at the moment it's supposed to already be invisible,
+      // instead of leaving stray paths uncaught for the whole typing pass.
+      // Safe to add this early: every other .shutdown-gated rule
+      // (#nodes/#briefing/.list-view opacity, .map-wrap border,
+      // .shutdown-panel/.shutdown-text) is already either paired to
+      // .shutdown-play too or independently driven by .visible above, so
+      // nothing else changes state early because of this.
+      main.classList.add("shutdown");
+
       const msgEl = document.getElementById("shutdown-message");
       const flagEl = document.getElementById("shutdown-flag-value");
       if (!msgEl || !flagEl) { settleShutdown(); return; }
@@ -750,7 +770,6 @@
       typewriter(msgEl, SKYNET_ENDING.message, 38, () => {
         if (typingAudio) typingAudio.pause();
         flagEl.textContent = decryptEndingFlag();
-        main.classList.add("shutdown");
       });
     }, maxD * 1250 + 1630);
   }
@@ -976,6 +995,16 @@
   }
 
   function renderBriefing(n) {
+    // Explicit pause before the teardown below: innerHTML="" detaches the
+    // old briefing's <audio> (see buildAudioPlayer) without stopping it — a
+    // detached-but-playing element keeps making sound, and duckAmbientFor's
+    // ambient-release never fires on time (or at all) since it's waiting on
+    // that same element's own "pause"/"ended" event. Calling .pause() here
+    // fires that event promptly and predictably instead of leaving it to
+    // whenever the browser eventually garbage-collects the orphaned element.
+    // A no-op if nothing was playing — pause() on an already-paused element
+    // doesn't refire the event, so this can't double-release a duck either.
+    briefingEl.querySelectorAll("audio").forEach(a => a.pause());
     briefingEl.innerHTML = "";
 
     const head = document.createElement("div");
