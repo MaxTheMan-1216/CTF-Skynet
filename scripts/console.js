@@ -287,6 +287,21 @@
     flagCipher: "098bd4a901dde7181fdddec2195973ce11a4477610f0d692",
   };
 
+  // DECO_NODES' bonus-level framing text — unlike SKYNET_ENDING.flagCipher
+  // just above, this is NOT encrypted, and there's no cipher/key pair for
+  // it anywhere in this file anymore (an earlier version had one, XOR-
+  // keyed off DECO_NODES[].fragment — a real flaw, since those fragments
+  // are plain source strings readable without ever finding a single deco,
+  // so that "encryption" protected nothing). The actual reward for solving
+  // this bonus level — the flag-style string — now comes only from
+  // src/index.js's response to a correct "deco" submission (see REWARDS
+  // there), same as every other node's answer never shipping to the
+  // client. This message is just the pre-submission framing text, shown
+  // once decoFound.length reaches DECO_NODES.length — same trade-off
+  // SKYNET_ENDING.message already makes (flavor text isn't the secret,
+  // only the payoff is), see renderFragmentsPanel near handleDecoClick.
+  const DECO_BONUS_LORE = "Four signals, scattered on purpose — losing all four at once was never survivable. Crystal Peak, Shelter Three. That facility went dark on paper decades ago. Paper lies.";
+
   // Set true the moment CORE clears (live or restored) — every ambient-loop
   // play() site (initConsole's autoplay, releaseAmbient's resume, the audio
   // toggle) checks this first and skips playback once it's set. The run is
@@ -347,14 +362,18 @@
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
       if (!confirm("Reset all node progress? This can't be undone.")) return;
-      // Three keys — DECO_STORAGE_KEY (below) tracks the 4 decorative
+      // Four keys — DECO_STORAGE_KEY (below) tracks the 4 decorative
       // easter eggs separately (skipping it would leave them stuck green),
+      // DECO_BONUS_KEY (also below) is the fragment bonus level's own
+      // solved state (skipping it would leave the NODE_04/NODE_05 hints
+      // unlocked after a reset that's supposed to take them away again),
       // and ELAPSED_KEY (declared near the elapsed-time stat further down)
       // is Session T+'s own accumulated-seconds total — skipping it would
       // reset every node but leave the clock still counting up from
       // whatever total the pre-reset playthrough had already reached.
       try { localStorage.removeItem(STORAGE_KEY); } catch (err) { /* ignore */ }
       try { localStorage.removeItem(DECO_STORAGE_KEY); } catch (err) { /* ignore */ }
+      try { localStorage.removeItem(DECO_BONUS_KEY); } catch (err) { /* ignore */ }
       try { localStorage.removeItem(ELAPSED_KEY); } catch (err) { /* ignore */ }
       window.location.reload();
     });
@@ -406,17 +425,28 @@
 
   // ---------- decorative easter-egg nodes ----------
   // 4 small ring icons baked into the skull artwork (#ball-d1..d4 in
-  // console.html) — pure decoration, no puzzle. Clicking one recolors it
-  // green, replays the clear-draw stroke animation real nodes get, and
-  // plays a one-shot chime — no briefing, no counter change. Deliberately
-  // outside NODES/CHAIN with no hover affordance at all (not even a cursor
-  // change — see .deco-node in console.css) and no tabindex/keyboard
-  // handling: a mouse-only secret nothing marks as interactive in advance.
+  // console.html) — still outside NODES/CHAIN, still no hover affordance
+  // at all (not even a cursor change — see .deco-node in console.css) and
+  // no tabindex/keyboard handling: a mouse-only secret nothing marks as
+  // interactive in advance. Clicking one recolors it green, replays the
+  // clear-draw stroke animation real nodes get, plays a one-shot chime —
+  // same as always. What changed (2026-08-15): each now also carries a
+  // `fragment`; finding all 4 (join order fixed by this array, independent
+  // of find order) unlocks a real bonus level — a submission form appears
+  // in the HUD (#fragments-toggle/#fragments-panel, see
+  // renderFragmentsPanel near handleDecoClick) asking for the assembled
+  // fragments, checked server-side exactly like every other node's answer
+  // (ANSWER_HASHES.deco in src/index.js). A *correct* submission — not
+  // just finding all 4 — is what unlocks light-touch hints on
+  // NODE_04/NODE_05 specifically (see renderBriefing's decoBonusReward
+  // check) and reveals the actual reward text, which never ships to the
+  // client until earned. Still no briefing/counter change from a deco
+  // click itself; the payoff is entirely in HUD state.
   const DECO_NODES = [
-    { id: "d1", x: 433, y: 97 },
-    { id: "d2", x: 172, y: 217 },
-    { id: "d3", x: 851, y: 1461 },
-    { id: "d4", x: 1384, y: 604 },
+    { id: "d1", x: 433, y: 97, fragment: "CRYSTAL" },
+    { id: "d2", x: 172, y: 217, fragment: "PEAK" },
+    { id: "d3", x: 851, y: 1461, fragment: "SHELTER" },
+    { id: "d4", x: 1384, y: 604, fragment: "THREE" },
   ];
   const DECO_STORAGE_KEY = "skynet:deco-found";
   let decoFound = [];
@@ -424,6 +454,22 @@
     decoFound = JSON.parse(localStorage.getItem(DECO_STORAGE_KEY) || "[]");
   } catch (err) {
     decoFound = []; // storage unavailable — just won't persist, same fallback as loadProgress()
+  }
+
+  // The confirmed reward string once the bonus level below is solved, or
+  // null before that — this, not decoFound.length alone, is what actually
+  // gates the NODE_04/NODE_05 hints in renderBriefing (decoFound.length
+  // only gates whether the submission form appears at all). Stores the
+  // reward text itself rather than a bare boolean so a reload can show the
+  // solved state without a second server round-trip — same idea as
+  // NODES[].submittedAnswer persisting the confirmed answer, not just a
+  // "solved" flag.
+  const DECO_BONUS_KEY = "skynet:deco-bonus";
+  let decoBonusReward = null;
+  try {
+    decoBonusReward = localStorage.getItem(DECO_BONUS_KEY);
+  } catch (err) {
+    decoBonusReward = null;
   }
 
   // replay:false is the boot-time path for anything found on a past visit —
@@ -442,9 +488,143 @@
   // One-shot discovery chime — deliberately not run through duckAmbientFor()
   // like puzzle clips/Cleared.mp3 are: this is a secret aside, not a puzzle
   // beat, so ambient keeps playing underneath it. currentTime reset on every
-  // call so rapid-fire discoveries each restart the clip cleanly.
+  // call so rapid-fire discoveries each restart the clip cleanly. Also
+  // doubles as the "all 4 found" chime (see handleDecoClick) — one clip
+  // covers both, no separate sound needed for the completing click.
   const decoAudio = document.getElementById("deco-audio");
   if (decoAudio) decoAudio.volume = 0.4; // -40% from the clip's native level
+
+  // #fragments-toggle/#fragments-panel (console.html) — hidden until the
+  // first fragment is found, same "no advance affordance" rule as the deco
+  // hotspots themselves. Kept as a small stateless helper rather than
+  // folded into handleDecoClick directly so the boot-restore path below
+  // can reuse the HUD-sync half without also rebuilding the panel body.
+  function updateFragmentsHud() {
+    const toggle = document.getElementById("fragments-toggle");
+    const state = document.getElementById("fragments-state");
+    if (!toggle || !state || decoFound.length === 0) return;
+    toggle.hidden = false;
+    state.textContent = decoFound.length + "/" + DECO_NODES.length;
+    if (decoBonusReward !== null) toggle.classList.add("complete");
+  }
+
+  // Rebuilds #fragments-panel's contents from scratch every call — same
+  // "wipe and re-append" approach renderBriefing uses for the main panel,
+  // rather than incrementally patching the DOM, so there's exactly one
+  // place deciding what this panel looks like for any given state. Three
+  // states: already solved (read-only reward display), all 4 found but
+  // not yet solved (the submission form), or fewer than 4 found (nothing
+  // worth rendering — the toggle itself stays hidden before the first
+  // find via updateFragmentsHud, this just has nothing to show in between).
+  // Only builds *content* — never touches panel.hidden itself; that's
+  // handleDecoClick (the live completing click) and the manual toggle
+  // handler's job, see both below.
+  function renderFragmentsPanel() {
+    const panel = document.getElementById("fragments-panel");
+    if (!panel) return;
+    panel.innerHTML = "";
+
+    if (decoBonusReward !== null) {
+      const found = document.createElement("p");
+      found.className = "fragments-message";
+      found.textContent = "Signal fragments recovered: " + DECO_NODES.map(n => n.fragment).join(", ") + ".";
+      const lore = document.createElement("p");
+      lore.className = "fragments-message";
+      lore.textContent = DECO_BONUS_LORE;
+      const reward = document.createElement("p");
+      reward.className = "fragments-message fragments-reward";
+      reward.textContent = decoBonusReward;
+      panel.appendChild(found);
+      panel.appendChild(lore);
+      panel.appendChild(reward);
+      return;
+    }
+
+    if (decoFound.length !== DECO_NODES.length) return; // not earned yet, nothing to render
+
+    const lore = document.createElement("p");
+    lore.className = "fragments-message";
+    lore.textContent = DECO_BONUS_LORE;
+    const found = document.createElement("p");
+    found.className = "fragments-message";
+    found.textContent = "Signal fragments recovered: " + DECO_NODES.map(n => n.fragment).join(", ") + ". Assemble and submit.";
+    panel.appendChild(lore);
+    panel.appendChild(found);
+
+    // Same flag-demo markup and async-fetch-to-CHECK_ENDPOINT handler as
+    // renderBriefing's own submission form (see that code) — mirrored
+    // literally rather than pulled into a shared helper, matching this
+    // file's existing convention: renderBriefing's own solved/unsolved
+    // flag-demo blocks are already two separate literal blocks for the
+    // same content, not a shared abstraction either.
+    const demo = document.createElement("div");
+    demo.className = "flag-demo";
+    demo.innerHTML = `
+      <div class="label">Flag Submission</div>
+      <div class="flag-row">
+        <input type="text" placeholder="type your answer" aria-label="Bonus flag input" autocomplete="off" spellcheck="false" />
+        <button type="button">Submit</button>
+      </div>
+      <div class="flag-msg"></div>`;
+    const input = demo.querySelector("input");
+    const msg = demo.querySelector(".flag-msg");
+    const button = demo.querySelector("button");
+    let submitting = false;
+    button.addEventListener("click", async () => {
+      if (submitting) return;
+      const val = input.value.trim();
+      if (!val) {
+        msg.textContent = "// enter something to see this state.";
+        return;
+      }
+
+      submitting = true;
+      button.disabled = true;
+      msg.textContent = "// TRANSMITTING GUESS...";
+
+      let result;
+      try {
+        const res = await fetch(CHECK_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nodeId: "deco", guess: val }),
+        });
+        result = await res.json();
+        if (res.status === 429) {
+          msg.textContent = result.retryAfter
+            ? `// UPLINK THROTTLED — retry in ${result.retryAfter}s.`
+            : "// UPLINK THROTTLED — slow down.";
+          return;
+        }
+        if (!res.ok) throw new Error("bad response");
+      } catch (err) {
+        msg.textContent = "// CONNECTION LOST — check your uplink and retry.";
+        return;
+      } finally {
+        submitting = false;
+        button.disabled = false;
+      }
+
+      if (result.correct) {
+        msg.textContent = "// ACCESS GRANTED — segment neutralized.";
+        decoBonusReward = result.reward;
+        try { localStorage.setItem(DECO_BONUS_KEY, decoBonusReward); } catch (err) { /* ignore */ }
+        updateFragmentsHud();
+        renderFragmentsPanel();
+        // If NODE_04/NODE_05's briefing happens to already be open, refresh
+        // it so the newly-unlocked hint appears without a manual re-click —
+        // selectNode() re-renders whatever id is passed, so re-invoking it
+        // with the currently-selected id (read off the DOM's own .selected
+        // marker via selectNode itself — the only place that state already
+        // lives, nothing new tracked here) is enough.
+        const selectedId = document.querySelector(".node.selected, .list-item.selected")?.dataset.id;
+        if (selectedId === "n4" || selectedId === "n5") selectNode(selectedId);
+      } else {
+        msg.textContent = "// ACCESS DENIED — incorrect.";
+      }
+    });
+    panel.appendChild(demo);
+  }
 
   // Shared by both click surfaces below (.deco-node div + the in-artwork
   // #ball-d* group) so "found" is recorded the same regardless of which fires.
@@ -456,6 +636,20 @@
     if (decoAudio) {
       decoAudio.currentTime = 0;
       decoAudio.play().catch(() => {});
+    }
+    updateFragmentsHud();
+    renderFragmentsPanel();
+    // The completing click (decoFound.length just reached DECO_NODES.length
+    // — the early return above means that can only happen once, on this
+    // exact click) also opens the panel outright, the same "surface itself
+    // the moment it's ready" beat a live puzzle solve gets. Every earlier
+    // find just updates state quietly instead, per updateFragmentsHud's own
+    // "no advance affordance" reasoning.
+    if (decoFound.length === DECO_NODES.length && decoBonusReward === null) {
+      const panel = document.getElementById("fragments-panel");
+      const toggle = document.getElementById("fragments-toggle");
+      if (panel) panel.hidden = false;
+      if (toggle) toggle.setAttribute("aria-expanded", "true");
     }
   }
 
@@ -478,6 +672,29 @@
     const ball = document.getElementById("ball-" + n.id);
     if (ball) ball.addEventListener("click", () => handleDecoClick(n.id));
   });
+
+  // Boot-restore path — mirrors the DECO_NODES.forEach loop just above
+  // (replay:false for each already-found ball) at the HUD-and-panel level:
+  // sync the toggle/count and rebuild the panel's contents instantly with
+  // no animation, but never force it open on a reload — same "don't replay
+  // the reveal" rule every other boot-restore path in this file already
+  // follows. renderFragmentsPanel() building fresh content doesn't imply
+  // un-hiding the panel itself; only a live completing click
+  // (handleDecoClick) or a manual toggle click does that.
+  updateFragmentsHud();
+  renderFragmentsPanel();
+
+  const fragmentsToggle = document.getElementById("fragments-toggle");
+  if (fragmentsToggle) {
+    fragmentsToggle.addEventListener("click", () => {
+      if (decoFound.length < DECO_NODES.length) return; // nothing to show yet, quietly do nothing rather than open an empty panel
+      const panel = document.getElementById("fragments-panel");
+      if (!panel) return;
+      const opening = panel.hidden;
+      panel.hidden = !opening;
+      fragmentsToggle.setAttribute("aria-expanded", String(opening));
+    });
+  }
 
   function makeListItem(n, showStem, i) {
     // Every node is tappable regardless of status — always a real <button>.
@@ -1085,6 +1302,25 @@
       briefingEl.appendChild(cipher);
     }
 
+    // Light-touch hints for the two hardest nodes in the chain, unlocked
+    // by *solving* the decorative-fragment bonus level (decoBonusReward
+    // set — see renderFragmentsPanel), not merely by finding all 4
+    // fragments (decoFound.length alone only unlocks the ability to
+    // attempt that submission). Cross-cutting content gated on unrelated
+    // state, not part of either node's own definition, so it lives here
+    // as a small literal branch rather than a new NODES[] field that would
+    // misleadingly imply it belongs to n4/n5's own puzzle data. Confirms
+    // cipher family / key location, doesn't do the solving — see the plan
+    // this was built from for why that calibration was chosen deliberately.
+    if ((n.id === "n4" || n.id === "n5") && accessible && decoBonusReward !== null) {
+      const hint = document.createElement("div");
+      hint.className = "briefing-hint";
+      hint.textContent = n.id === "n4"
+        ? "Two arms, eight positions each. Sailors used this before radios existed — look up flag semaphore, not Morse."
+        : "The key was never hidden. It was announced, in the first transmission's header, disguised as a timestamp — not all of it. Just the part that isn't a date.";
+      briefingEl.appendChild(hint);
+    }
+
     if (n.status === "locked" || (accessible && n.status === "bonus" && !n.cipher)) {
       const note = document.createElement("div");
       note.className = "briefing-note";
@@ -1375,7 +1611,7 @@
 
   console.log("%cCORE // INTRUSION LOGGED", "color:#ff3131; font:bold 28px monospace; text-shadow:1px 1px 0 #000;");
   console.log("%csource inspection detected — see below", "color:#9198a1; font:13px monospace;");
-  pickRandom(CONSOLE_TAUNTS, 6).forEach(line => {
+  pickRandom(CONSOLE_TAUNTS, 3).forEach(line => {
     console.log("%c// " + line, "color:#9198a1; font:13px monospace;");
   });
 

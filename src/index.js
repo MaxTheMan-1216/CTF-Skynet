@@ -46,7 +46,13 @@
 // NODES[] has no answerHash field at all. If a node's answer is ever
 // changed, regenerate the hash here the same careful way CLAUDE.md
 // describes (compute it, verify, don't hand-type it) — nothing needs
-// updating on the console.js side for this specific field.
+// updating on the console.js side for this specific field. `deco` is the
+// one exception to "copied from NODES[]" — it has no NODES[] counterpart
+// at all (DECO_NODES isn't part of NODES/CHAIN), it's the bonus level
+// unlocked by finding all 4 decorative fragments (see REWARDS below and
+// the DECO_NODES comment in console.js). Its hash is of the 4 fragments
+// assembled ("crystal peak shelter three", normalizeAnswer'd) — same
+// compute-don't-hand-type discipline as every hash here.
 const ANSWER_HASHES = {
   n1: "e43781640b80cf82007d12b66a5611931ad569166b98543e9ffd0d727462a126",
   n2: "28e211aeed4eb2e1740d7da242b4b34c676875b2691ccb247761ae87f2bd1b2e",
@@ -56,6 +62,17 @@ const ANSWER_HASHES = {
   n6: "10c08ff84069d1ed0f8ff2622ac710954df7260a1c7cb38c983c35a4208a6511",
   n7: "f55de374352faf2a5136a98a91c092fd290a7366c1838bc3d1819937491f0cb1",
   b1: "45e8716890d299afde59779a3e129b237d250d8702cfd4952949ebec90eb6c2a",
+  deco: "f751a5cae76d2fb81fe1cf700b0f058488b22526c8d3ae23385337fe5fc5f8c6",
+};
+
+// Extra payload returned only alongside a *correct* answer for the given
+// id — everything else keeps returning bare {correct}, see the branch in
+// handleCheckAnswer below. This is what actually keeps the deco bonus's
+// reward off the client entirely until it's genuinely earned: unlike
+// ANSWER_HASHES, which every id needs, REWARDS is opt-in per id, so
+// n1-n7/b1's responses are completely unaffected by this existing at all.
+const REWARDS = {
+  deco: "CRYSTAL_PEAK // SHELTER-03 // STILL LISTENING",
 };
 
 // Byte-for-byte the same rules as normalizeAnswer() in scripts/console.js
@@ -174,6 +191,12 @@ async function handleCheckAnswer(request, env) {
 
   const hash = await sha256Hex(normalizeAnswer(guess));
   const correct = hash === ANSWER_HASHES[nodeId];
+  // REWARDS is opt-in per id (see its own comment) — every id not in it
+  // (n1-n7, b1) falls straight through to the plain response below,
+  // completely unchanged from before this branch existed.
+  if (correct && nodeId in REWARDS) {
+    return json({ correct: true, reward: REWARDS[nodeId] }, 200);
+  }
   return json({ correct }, 200);
 }
 

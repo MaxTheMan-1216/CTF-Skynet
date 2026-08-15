@@ -88,9 +88,66 @@
   .hud-reset .v { color: var(--signal); }
   .hud-reset:hover .v, .hud-reset:focus-visible .v { text-decoration: underline; }
   .hud-reset:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
+
+  /* Hidden by default via the [hidden] attribute in console.html — console.js
+     removes it the moment the first deco (DECO_NODES) is found, so this
+     never advertises the easter egg before a player has already stumbled
+     onto it. --steel (neutral) while still counting up; --cleared (green,
+     "done" per the theme's own convention) once all 4 are in and this
+     becomes clickable to open .fragments-panel below. */
+  .hud-fragments { cursor: pointer; background: none; border: none; padding: 0; font: inherit; }
+  .hud-fragments:hover .v, .hud-fragments:focus-visible .v { color: var(--phosphor); }
+  .hud-fragments:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
+  .hud-fragments.complete .v { color: var(--cleared); }
+  .hud-fragments.complete:hover .v, .hud-fragments.complete:focus-visible .v { color: var(--cleared); }
+
   @media (max-width: 420px) {
     header { padding: 16px 16px 12px; gap: 14px; }
     .hud-stats { gap: 14px; }
+  }
+
+  /* Same panel treatment as .cipher-block (briefing puzzle payloads) so it
+     reads as part of the same visual language rather than inventing a new
+     one — but positioned as a dropdown off the header, not inline in the
+     page flow, since this is a bonus aside rather than another
+     .shutdown-panel-weight moment (see the comment on #fragments-panel in
+     console.html for why it's deliberately lighter than the ending
+     reveal). Hidden via [hidden] until console.js toggles it open. */
+  .fragments-panel {
+    position: absolute;
+    top: 72px;
+    right: clamp(16px, 4vw, 40px);
+    z-index: 5;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 14px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  .fragments-message {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--phosphor);
+    white-space: pre-line;
+  }
+  /* renderFragmentsPanel() appends more than one .fragments-message
+     (found-fragments list, lore, and — once solved — the reward) as
+     separate <p> siblings rather than one blob, so later ones need their
+     own top margin; the lone-message case (a locked/never-earned panel
+     never renders at all, see that function) doesn't exist to worry about. */
+  .fragments-message + .fragments-message {
+    margin-top: 10px;
+  }
+  /* The actual payoff once solved — --cleared (green), matching the
+     theme's own "done" convention elsewhere (NODES status, Session
+     elapsed once complete, etc.), distinct from the plain phosphor lore
+     text above it. */
+  .fragments-reward {
+    color: var(--cleared);
+    font-weight: 600;
   }
 
   /* ---------- layout ---------- */
@@ -944,6 +1001,24 @@
     font-size: 10px;
     color: var(--steel-dim);
     opacity: 0.7;
+  }
+
+  /* Light-touch n4/n5 hints, unlocked via the 4 decorative fragments (see
+     renderBriefing's decoFound.length check) — same border-left treatment
+     as .briefing-note since it's structurally the same kind of aside, but
+     italic and a touch brighter (--steel, not --steel-dim) since this was
+     earned rather than just informational, worth actually noticing. Not
+     --flame: that color is already claimed for .current status states
+     elsewhere, reusing it here would misread as "this node is active". */
+  .briefing-hint {
+    margin-top: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-style: italic;
+    color: var(--steel);
+    border-left: 2px solid var(--panel-edge);
+    padding-left: 10px;
+    line-height: 1.6;
   }
 
   .flag-demo {

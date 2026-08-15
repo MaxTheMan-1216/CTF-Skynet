@@ -37,8 +37,26 @@
       <div class="k">Progress</div>
       <div class="v">Reset</div>
     </button>
+    <!-- Hidden until the first deco (DECO_NODES in console.js) is found —
+         nothing here advertises the easter egg exists in advance, same
+         principle as .deco-node's own lack of a hover cue. console.js
+         un-hides this and fills in #fragments-state; once all 4 are
+         found it also toggles #fragments-panel below. -->
+    <button type="button" class="hud-stat hud-fragments" id="fragments-toggle" hidden
+      aria-expanded="false" aria-controls="fragments-panel">
+      <div class="k">Signal Fragments</div>
+      <div class="v" id="fragments-state">0/4</div>
+    </button>
   </div>
 </header>
+
+<!-- Contents entirely rebuilt by renderFragmentsPanel() in console.js —
+     the bonus level's lore/submission-form/solved-reward states, depending
+     on decoFound/decoBonusReward. Absolute-positioned under the header
+     rather than a full shutdown-panel-style overlay: this is a bonus
+     aside, not the ending, so it shouldn't compete with that moment's
+     visual weight. -->
+<div class="fragments-panel" id="fragments-panel" hidden></div>
 
 <main>
   <div class="init-overlay" id="init-overlay">
