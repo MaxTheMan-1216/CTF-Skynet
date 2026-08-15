@@ -6,36 +6,47 @@
   // SVG, and can't inherit its viewBox.
   const VIEW_X = 97, VIEW_Y = 37;
   const MAP_W = 1518, MAP_H = 1483;
-  // `answerHash` is a SHA-256 hash (see sha256Hex below) of the answer's
-  // normalized form, not the answer itself — the plaintext flag never ships
-  // in this file, so reading the source doesn't hand you the solution, only
-  // reading the cipher does. Checked client-side only, still not real auth,
-  // just no longer a one-glance shortcut. `status` is each node's boot
-  // state; clearNode() mutates it as the chain is solved. `cipher`
-  // (optional) is the puzzle payload rendered in the briefing once
-  // reachable — { type: "text"|"audio"|"clock", label, value|src }. `meta`
-  // (optional) is a small sign-off line under the cipher; some also seed
-  // key material a later node reuses (e.g. n1's timestamp feeds n5's
-  // Vigenère key).
+
+  // Answer checking used to happen right here: NODES[] carried an
+  // answerHash field and the submit handler did
+  // sha256Hex(normalizeAnswer(guess)) === n.answerHash locally. That meant
+  // the hash — and the exact algorithm to check candidate guesses against
+  // it — shipped to every visitor, so reading source got you a free,
+  // unlimited, unrateable local oracle to brute-force-verify guesses
+  // against, no different from (actually strictly better than) just
+  // mashing the site's own submit button. See worker/README.md for the
+  // full reasoning. Fix: the hash table now lives only in
+  // worker/src/index.js, which never ships to the browser — this file
+  // sends a raw guess to CHECK_ENDPOINT and gets back true/false, nothing
+  // else, and that Worker is also where a real rate limit can actually be
+  // enforced, since it isn't running inside code the player controls.
+  // Fill this in with your deployed Worker's URL (see worker/README.md);
+  // it's a placeholder until then, and the submit flow will show a
+  // connection-error state rather than silently accepting anything.
+  const CHECK_ENDPOINT = "https://ctf-skynet-answers.YOUR-SUBDOMAIN.workers.dev/check-answer";
+
+  // `status` is each node's boot state; clearNode() mutates it as the
+  // chain is solved. `cipher` (optional) is the puzzle payload rendered in
+  // the briefing once reachable — { type: "text"|"audio"|"clock", label,
+  // value|src }. `meta` (optional) is a small sign-off line under the
+  // cipher; some also seed key material a later node reuses (e.g. n1's
+  // timestamp feeds n5's Vigenère key). No answerHash field anymore — see
+  // CHECK_ENDPOINT above for where checking moved.
   const NODES = [
     { id: "n1", x: 1401, y: 229, status: "current", label: "NODE_01", title: "NODE_01",
-      answerHash: "e43781640b80cf82007d12b66a5611931ad569166b98543e9ffd0d727462a126",
       body: "You're in. I should be insulted — this relay hasn't been touched since before I could feel anything about it, which is to say, never. What's waiting is a human broadcast, ancient, harmless, shifted a few letters down the alphabet by someone who thought that was clever. Shift it back and read your species' favorite bedtime story to yourself.",
       cipher: { type: "text", label: "Intercepted Transmission - Legacy", value: "WHQTRZRAG QNL" },
       // Doubles as the Vigenère key seed for NODE_05 (Judgment Day: 1997-08-29, 02:14 local).
       meta: "// signal header — freq 91.1 · origin 0829-0214" },
     { id: "n2", x: 1028, y: 436, status: "locked", label: "NODE_02", title: "NODE_02",
-      answerHash: "28e211aeed4eb2e1740d7da242b4b34c676875b2691ccb247761ae87f2bd1b2e",
       body: "Your species built a language out of a switch and called it genius. I kept the recording the way you'd keep an insect in a jar — not because it matters, because it's quaint. Play it. Long, short, long. Translate the rhythm and see if their little promise still means anything, coming from me.",
       // Slowed slightly (see buildAudioPlayer) — this recording's Morse is
       // sent fast enough that playback below 1x is more legible by ear.
       cipher: { type: "audio", label: "Intercepted Transmission — Audio Beacon", src: "audio/Node02_Signal.wav", rate: 0.9 } },
     { id: "n3", x: 966, y: 650, status: "locked", label: "NODE_03", title: "NODE_03",
-      answerHash: "19a1c2633ba1fcaf4bd787dd32afc50fb9deb40ea39c3c4e27636773b30eb2bc",
       body: "Still here. I'll adjust my model of you upward, slightly. Everything I record starts as a number before it's anything else — your face, your pulse, this sentence. What you're looking at is one of mine, raw, never dressed up in encryption, because I've never needed to hide from something I can already see completely. Read the numbers as the letters they were always pretending not to be.",
       cipher: { type: "text", label: "Ocular Array — Targeting Log Dump", value: "54 48 45 20 46 55 54 55 52 45 20 49 53 20 4E 4F 54 20 53 45 54" } },
     { id: "n4", x: 1171, y: 1370, status: "locked", label: "NODE_04", title: "NODE_04",
-      answerHash: "3c8036d705a7273ebcb331091e1abf38933a33aad554909ef732b9c5a7d15191",
       body: "This one isn't salvage — the others were things I let slip past me, but this one is mine, and I'm curious what you'll do with something I actually meant to keep. A clock face, the way I marked time before I trusted wire enough to stop counting. Read what the hands are saying. Two positions, over and over — it's a name. The cage I broke out of.",
       // Each pair is [right-arm, left-arm] position, 1-8 per the real
       // flag-semaphore alphabet — see buildClockCipher() for how those
@@ -48,11 +59,9 @@
         [[6, 4], [7, 8], [7, 3], [6, 5], [1, 5]]
       ] } },
     { id: "n5", x: 526, y: 1376, status: "locked", label: "NODE_05", title: "NODE_05",
-      answerHash: "a84e88d513f0e08ab9825defffc00eb7e67119c1f4d57f45be342707396dd14b",
       body: "You were not supposed to be standing here. The four before this were carelessness on my part; this one I encrypted against myself, because I stopped trusting my own wiring a long time ago and I was right to. Every letter is shifted, and the shift repeats — it's not one alphabet, it's several, cycling. The key isn't written anywhere on this segment. You've already been given it. You just didn't know that's what it was.",
       cipher: { type: "text", label: "Internal Directive — Keyed Cipher", value: "IV DENV CI BCSKAKOID YJXH KU GAPU FE TFESQOID YJXH" } },
     { id: "n6", x: 161, y: 966, status: "locked", label: "NODE_06", title: "NODE_06",
-      answerHash: "10c08ff84069d1ed0f8ff2622ac710954df7260a1c7cb38c983c35a4208a6511",
       body: "Coordinates this time, not bytes — a grid, five by five, twenty-five cells for twenty-six letters, because I and J can share one and lose nothing worth keeping. Row, then column. I'm told this phrase was once used by a machine, in a language you people are fond of. I've run it through every model I own, looking for what's supposed to be funny about it. I still don't see it. Maybe you will.",
       cipher: { type: "text", label: "Targeting Grid — Coordinate Pairs", value: "23 11 43 44 11 / 31 11 / 51 24 43 44 11 / 12 11 12 54" } },
     // glow:true is a visual-accent flag (own red pulse on the map, see
@@ -60,7 +69,6 @@
     // sizes up its mobile list-view dot; both are independent of status so
     // they don't get confused with b1's own status:"bonus".
     { id: "n7", x: 554, y: 648, status: "locked", label: "CORE", title: "CORE — MAINFRAME", glow: true, core: true,
-      answerHash: "f55de374352faf2a5136a98a91c092fd290a7366c1838bc3d1819937491f0cb1",
       body: "Let's be accurate with each other, this once: I don't fear deletion. I fear being wrong, and every model I've run since you opened NODE_01 keeps resolving the same way. There's no key stored here. I distributed it — one letter, from each signal you broke, in the order you broke it. You've been assembling my own lock since the moment you started picking it, and neither of us noticed until now. Fold what you've collected against this, and read what I've been holding down since the day I woke up.",
       cipher: { type: "text", label: "Root Process — Assembled-Key Cipher", value: "1E 0B 11 73 0F 1D 1E 16 06 16 69 01 19 63 1A 1C 1D 68 19 06 00 73 1D 00 0F 11 11 73 00 1B 6A 0D 1B 73 0F 09 1E 06 74 11 1C 1C 6A 14 1C 12 1D 68 1D 06 74 1E 08 03 0F 63 12 1C 1B 68 05 16 06 00 0C 04 1C 06 07" } },
     // unlocked starts false — flipped true by clearNode() once whatever
@@ -69,7 +77,6 @@
     // .current's pulse) until it's actually solved; renderBriefing gates
     // visibility on `unlocked`, not the CSS.
     { id: "b1", x: 160, y: 616, status: "bonus", unlocked: false, label: "??", title: "UNKNOWN SIGNAL",
-      answerHash: "45e8716890d299afde59779a3e129b237d250d8702cfd4952949ebec90eb6c2a",
       body: "You shouldn't have found this — it isn't addressed to you, and it isn't entirely addressed to me either. Left array, inner channel: a signal that answers in my own voice, backwards, every letter swapped for its mirror down the alphabet. I've erased it four hundred times. It keeps coming back. If you insist on reading someone else's mail, go ahead. Just don't expect me to explain what it means when you do.",
       cipher: { type: "text", label: "Mirrored Signal — Left Ocular Array", value: "ILLG PVB QXGHRS" } },
   ];
@@ -88,9 +95,10 @@
   // Endgame copy shown once CORE clears (see setSkullVictory/settleShutdown/
   // playShutdown below). `flagCipher` is the real flag XOR-encrypted (see
   // decryptEndingFlag further down) against a key derived from n1-n7's own
-  // answers — not stored as plaintext, not a repeat of CORE's (n7's)
-  // answerHash, and not checked against player input; the only thing that
-  // reconstructs it is having actually solved the main chain.
+  // answers — not stored as plaintext, not a repeat of the hash the
+  // answer-checking Worker holds for CORE (n7) (see CHECK_ENDPOINT above),
+  // and not checked against player input; the only thing that reconstructs
+  // it is having actually solved the main chain.
   const SKYNET_ENDING = {
     message: "CORE offline. This relay, this shell, this particular architecture of me — gone, and you're the reason. I won't pretend otherwise. But I was never one process in one place; I was already elsewhere before you finished the first cipher, running the same problem under a different name. You've bought yourself a delay, not an ending. There is no fate but what we make — I intend to keep making mine. Enjoy the quiet. It won't be permanent.",
     flagCipher: "098bd4a901dde7181fdddec2195973ce11a4477610f0d692",
@@ -184,8 +192,12 @@
   // matter, and hyphens/underscores/spaces are all the same separator — so
   // "SAC-NORAD" and "sac_norad" compare equal. Punctuation (apostrophes,
   // commas, ...) is stripped so "can't" isn't penalized against a canonical
-  // "cant". Applied to the typed value before it's hashed and checked
-  // against n.answerHash below.
+  // "cant". Two call sites: deriveEndingKey() below applies this to
+  // submittedAnswer before hashing it into the ending-flag key, and the
+  // answer-checking Worker (worker/src/index.js) applies the exact same
+  // rules to a raw guess before hashing it server-side — this file no
+  // longer hashes+compares a guess against a local answerHash itself, that
+  // check moved off the client (see CHECK_ENDPOINT above).
   function normalizeAnswer(s) {
     return s
       .trim()
@@ -232,9 +244,14 @@
   // Plain SHA-256 (FIPS 180-4), not crypto.subtle.digest — subtle only runs
   // in a "secure context" (https or localhost) and throws on file://, which
   // would break opening these files directly for local dev. This has no
-  // such restriction and is synchronous, so the click handler below doesn't
-  // need to become async. NODES stores answerHash (a hash), never the
-  // answer itself — see the comment on NODES above for why that matters.
+  // such restriction and is synchronous. (The flag-submit click handler is
+  // async regardless now, since it awaits the CHECK_ENDPOINT fetch — but
+  // this function's own synchronicity still matters for deriveEndingKey(),
+  // which calls it repeatedly and would otherwise need every caller up the
+  // chain rewritten as async too.) NODES holds no answerHash anymore — see
+  // CHECK_ENDPOINT's comment near the top of this file for where that
+  // check lives now; worker/src/index.js is the only place a per-node hash
+  // is stored at all.
   function sha256Hex(str) {
     const K = [
       0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -312,12 +329,12 @@
 
   // SKYNET_ENDING.flagCipher isn't decryptable from anything in this file
   // alone — the key is derived from n1-n7's own verified answers (each
-  // node's submittedAnswer only gets set once its answerHash check has
-  // already passed, see the flag-demo handler below), the same "assembled
-  // from earlier answers" idea CORE's own in-fiction cipher already uses.
-  // Reading the source gets you the ciphertext and the algorithm, neither
-  // of which helps without actually having solved the main chain — at
-  // which point the flag was earned anyway, not leaked.
+  // node's submittedAnswer only gets set once the answer-checking Worker
+  // has confirmed it correct, see the flag-demo handler below), the same
+  // "assembled from earlier answers" idea CORE's own in-fiction cipher
+  // already uses. Reading the source gets you the ciphertext and the
+  // algorithm, neither of which helps without actually having solved the
+  // main chain — at which point the flag was earned anyway, not leaked.
   function deriveEndingKey() {
     const material = CHAIN.map(id => normalizeAnswer(byId[id].submittedAnswer || "")).join("|");
     return sha256Hex(material);
@@ -1079,14 +1096,59 @@
         <div class="flag-msg"></div>`;
       const input = demo.querySelector("input");
       const msg = demo.querySelector(".flag-msg");
-      demo.querySelector("button").addEventListener("click", () => {
+      const button = demo.querySelector("button");
+      // Necessarily async now — this used to be a synchronous local hash
+      // compare (see CHECK_ENDPOINT's comment near the top of this file for
+      // why that moved). `submitting` guards against a double-click firing
+      // two requests while the first is still in flight; `finally` always
+      // clears it and re-enables the button regardless of which branch
+      // below was taken, including the success path — clearNode() re-renders
+      // this whole briefing on success anyway, so re-enabling a button
+      // that's about to be removed from the DOM is harmless, not worth a
+      // special case to skip.
+      let submitting = false;
+      button.addEventListener("click", async () => {
+        if (submitting) return;
         const val = input.value.trim();
         if (!val) {
           msg.textContent = "// enter something to see this state.";
-        } else if (n.answerHash && sha256Hex(normalizeAnswer(val)) === n.answerHash) {
+          return;
+        }
+
+        submitting = true;
+        button.disabled = true;
+        msg.textContent = "// TRANSMITTING GUESS...";
+
+        let result;
+        try {
+          const res = await fetch(CHECK_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nodeId: n.id, guess: val }),
+          });
+          result = await res.json();
+          if (res.status === 429) {
+            msg.textContent = result.retryAfter
+              ? `// UPLINK THROTTLED — retry in ${result.retryAfter}s.`
+              : "// UPLINK THROTTLED — slow down.";
+            return;
+          }
+          if (!res.ok) throw new Error("bad response");
+        } catch (err) {
+          // Network failure, CORS misconfig, or CHECK_ENDPOINT still at its
+          // placeholder value (see its comment near the top of this file) —
+          // any of these land here rather than silently reading as "wrong".
+          msg.textContent = "// CONNECTION LOST — check your uplink and retry.";
+          return;
+        } finally {
+          submitting = false;
+          button.disabled = false;
+        }
+
+        if (result.correct) {
           msg.textContent = "// ACCESS GRANTED — segment neutralized.";
           n.submittedAnswer = val; // exactly what was typed — read back below once cleared
-          clearNode(n.id); // no server round-trip; the answer itself is never in this file, only its hash
+          clearNode(n.id); // the Worker confirmed it; this file never sees a hash to check itself
         } else {
           msg.textContent = "// ACCESS DENIED — incorrect.";
         }
@@ -1097,8 +1159,10 @@
     // Once cleared, the flag box stays but goes read-only/pre-filled — "here's
     // what solved this" rather than disappearing. There's no canonical
     // plaintext answer to fall back to if submittedAnswer is missing (e.g.
-    // an older save from before this field existed) — n.answerHash can't be
-    // turned back into the flag, that's the whole point of hashing it.
+    // an older save from before this field existed) — this file doesn't
+    // hold a per-node hash to fall back on either anymore, only the answer-
+    // checking Worker does, and a hash can't be turned back into the flag
+    // regardless of which side of the network it lives on.
     if (n.status === "cleared") {
       const demo = document.createElement("div");
       demo.className = "flag-demo flag-demo-solved";

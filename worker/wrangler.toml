@@ -1,0 +1,21 @@
+# Cloudflare Worker config for the answer-checking API. Deploy from inside
+# this worker/ directory — see worker/README.md for the full walkthrough.
+
+name = "ctf-skynet-answers"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Created by `wrangler kv namespace create RATE_LIMIT` (see README) — that
+# command prints an id to paste in below. Left as a placeholder here on
+# purpose: a namespace id is unique per Cloudflare account, there's no
+# generic default that would work.
+kv_namespaces = [
+  { binding = "RATE_LIMIT", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
+]
+
+# The origin your static site is actually served from (e.g.
+# "https://your-username.github.io" or a custom domain) — the Worker only
+# accepts cross-origin browser requests from this exact origin. No trailing
+# slash. "http://localhost:8000" is fine here too while testing locally.
+[vars]
+ALLOWED_ORIGIN = "REPLACE_WITH_YOUR_SITE_ORIGIN"
