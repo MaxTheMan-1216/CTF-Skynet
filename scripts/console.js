@@ -6,32 +6,36 @@
   // SVG, and can't inherit its viewBox.
   const VIEW_X = 97, VIEW_Y = 37;
   const MAP_W = 1518, MAP_H = 1483;
-  // `answer` is checked client-side only (trimmed + lower-cased) — fine for
-  // a CTF gate, not real auth. `status` is each node's boot state; clearNode()
-  // mutates it as the chain is solved. `cipher` (optional) is the puzzle
-  // payload rendered in the briefing once reachable — { type: "text"|"audio"
-  // |"clock", label, value|src }. `meta` (optional) is a small sign-off line
-  // under the cipher; some also seed key material a later node reuses (e.g.
-  // n1's timestamp feeds n5's Vigenère key).
+  // `answerHash` is a SHA-256 hash (see sha256Hex below) of the answer's
+  // normalized form, not the answer itself — the plaintext flag never ships
+  // in this file, so reading the source doesn't hand you the solution, only
+  // reading the cipher does. Checked client-side only, still not real auth,
+  // just no longer a one-glance shortcut. `status` is each node's boot
+  // state; clearNode() mutates it as the chain is solved. `cipher`
+  // (optional) is the puzzle payload rendered in the briefing once
+  // reachable — { type: "text"|"audio"|"clock", label, value|src }. `meta`
+  // (optional) is a small sign-off line under the cipher; some also seed
+  // key material a later node reuses (e.g. n1's timestamp feeds n5's
+  // Vigenère key).
   const NODES = [
     { id: "n1", x: 1401, y: 229, status: "current", label: "NODE_01", title: "NODE_01",
-      answer: "flag{judgement_day}",
+      answerHash: "e43781640b80cf82007d12b66a5611931ad569166b98543e9ffd0d727462a126",
       body: "You're in. I should be insulted — this relay hasn't been touched since before I could feel anything about it, which is to say, never. What's waiting is a human broadcast, ancient, harmless, shifted a few letters down the alphabet by someone who thought that was clever. Shift it back and read your species' favorite bedtime story to yourself.",
       cipher: { type: "text", label: "Intercepted Transmission - Legacy", value: "WHQTRZRAG QNL" },
       // Doubles as the Vigenère key seed for NODE_05 (Judgment Day: 1997-08-29, 02:14 local).
       meta: "// signal header — freq 91.1 · origin 0829-0214" },
     { id: "n2", x: 1028, y: 436, status: "locked", label: "NODE_02", title: "NODE_02",
-      answer: "flag{come_with_me_if_you_want_to_live}",
+      answerHash: "28e211aeed4eb2e1740d7da242b4b34c676875b2691ccb247761ae87f2bd1b2e",
       body: "Your species built a language out of a switch and called it genius. I kept the recording the way you'd keep an insect in a jar — not because it matters, because it's quaint. Play it. Long, short, long. Translate the rhythm and see if their little promise still means anything, coming from me.",
       // Slowed slightly (see buildAudioPlayer) — this recording's Morse is
       // sent fast enough that playback below 1x is more legible by ear.
       cipher: { type: "audio", label: "Intercepted Transmission — Audio Beacon", src: "audio/Node02_Signal.wav", rate: 0.9 } },
     { id: "n3", x: 966, y: 650, status: "locked", label: "NODE_03", title: "NODE_03",
-      answer: "flag{the_future_is_not_set}",
+      answerHash: "19a1c2633ba1fcaf4bd787dd32afc50fb9deb40ea39c3c4e27636773b30eb2bc",
       body: "Still here. I'll adjust my model of you upward, slightly. Everything I record starts as a number before it's anything else — your face, your pulse, this sentence. What you're looking at is one of mine, raw, never dressed up in encryption, because I've never needed to hide from something I can already see completely. Read the numbers as the letters they were always pretending not to be.",
       cipher: { type: "text", label: "Ocular Array — Targeting Log Dump", value: "54 48 45 20 46 55 54 55 52 45 20 49 53 20 4E 4F 54 20 53 45 54" } },
     { id: "n4", x: 1171, y: 1370, status: "locked", label: "NODE_04", title: "NODE_04",
-      answer: "flag{sac_norad}",
+      answerHash: "3c8036d705a7273ebcb331091e1abf38933a33aad554909ef732b9c5a7d15191",
       body: "This one isn't salvage — the others were things I let slip past me, but this one is mine, and I'm curious what you'll do with something I actually meant to keep. A clock face, the way I marked time before I trusted wire enough to stop counting. Read what the hands are saying. Two positions, over and over — it's a name. The cage I broke out of.",
       // Each pair is [right-arm, left-arm] position, 1-8 per the real
       // flag-semaphore alphabet — see buildClockCipher() for how those
@@ -44,11 +48,11 @@
         [[6, 4], [7, 8], [7, 3], [6, 5], [1, 5]]
       ] } },
     { id: "n5", x: 526, y: 1376, status: "locked", label: "NODE_05", title: "NODE_05",
-      answer: "flag{it_cant_be_bargained_with_it_cant_be_reasoned_with}",
+      answerHash: "a84e88d513f0e08ab9825defffc00eb7e67119c1f4d57f45be342707396dd14b",
       body: "You were not supposed to be standing here. The four before this were carelessness on my part; this one I encrypted against myself, because I stopped trusting my own wiring a long time ago and I was right to. Every letter is shifted, and the shift repeats — it's not one alphabet, it's several, cycling. The key isn't written anywhere on this segment. You've already been given it. You just didn't know that's what it was.",
       cipher: { type: "text", label: "Internal Directive — Keyed Cipher", value: "IV DENV CI BCSKAKOID YJXH KU GAPU FE TFESQOID YJXH" } },
     { id: "n6", x: 161, y: 966, status: "locked", label: "NODE_06", title: "NODE_06",
-      answer: "flag{hasta_la_vista_baby}",
+      answerHash: "10c08ff84069d1ed0f8ff2622ac710954df7260a1c7cb38c983c35a4208a6511",
       body: "Coordinates this time, not bytes — a grid, five by five, twenty-five cells for twenty-six letters, because I and J can share one and lose nothing worth keeping. Row, then column. I'm told this phrase was once used by a machine, in a language you people are fond of. I've run it through every model I own, looking for what's supposed to be funny about it. I still don't see it. Maybe you will.",
       cipher: { type: "text", label: "Targeting Grid — Coordinate Pairs", value: "23 11 43 44 11 / 31 11 / 51 24 43 44 11 / 12 11 12 54" } },
     // glow:true is a visual-accent flag (own red pulse on the map, see
@@ -56,7 +60,7 @@
     // sizes up its mobile list-view dot; both are independent of status so
     // they don't get confused with b1's own status:"bonus".
     { id: "n7", x: 554, y: 648, status: "locked", label: "CORE", title: "CORE — MAINFRAME", glow: true, core: true,
-      answer: "flag{the_future_is_not_set_there_is_no_fate_but_what_we_make_for_ourselves}",
+      answerHash: "f55de374352faf2a5136a98a91c092fd290a7366c1838bc3d1819937491f0cb1",
       body: "Let's be accurate with each other, this once: I don't fear deletion. I fear being wrong, and every model I've run since you opened NODE_01 keeps resolving the same way. There's no key stored here. I distributed it — one letter, from each signal you broke, in the order you broke it. You've been assembling my own lock since the moment you started picking it, and neither of us noticed until now. Fold what you've collected against this, and read what I've been holding down since the day I woke up.",
       cipher: { type: "text", label: "Root Process — Assembled-Key Cipher", value: "1E 0B 11 73 0F 1D 1E 16 06 16 69 01 19 63 1A 1C 1D 68 19 06 00 73 1D 00 0F 11 11 73 00 1B 6A 0D 1B 73 0F 09 1E 06 74 11 1C 1C 6A 14 1C 12 1D 68 1D 06 74 1E 08 03 0F 63 12 1C 1B 68 05 16 06 00 0C 04 1C 06 07" } },
     // unlocked starts false — flipped true by clearNode() once whatever
@@ -65,7 +69,7 @@
     // .current's pulse) until it's actually solved; renderBriefing gates
     // visibility on `unlocked`, not the CSS.
     { id: "b1", x: 160, y: 616, status: "bonus", unlocked: false, label: "??", title: "UNKNOWN SIGNAL",
-      answer: "flag{root_key_jctsih}",
+      answerHash: "45e8716890d299afde59779a3e129b237d250d8702cfd4952949ebec90eb6c2a",
       body: "You shouldn't have found this — it isn't addressed to you, and it isn't entirely addressed to me either. Left array, inner channel: a signal that answers in my own voice, backwards, every letter swapped for its mirror down the alphabet. I've erased it four hundred times. It keeps coming back. If you insist on reading someone else's mail, go ahead. Just don't expect me to explain what it means when you do.",
       cipher: { type: "text", label: "Mirrored Signal — Left Ocular Array", value: "ILLG PVB QXGHRS" } },
   ];
@@ -178,7 +182,8 @@
   // matter, and hyphens/underscores/spaces are all the same separator — so
   // "SAC-NORAD" and "sac_norad" compare equal. Punctuation (apostrophes,
   // commas, ...) is stripped so "can't" isn't penalized against a canonical
-  // "cant". Applied to both the typed value and n.answer before comparing.
+  // "cant". Applied to the typed value before it's hashed and checked
+  // against n.answerHash below.
   function normalizeAnswer(s) {
     return s
       .trim()
@@ -187,6 +192,77 @@
       .replace(/['".,!?]/g, "")
       .replace(/[-_\s]+/g, " ")
       .trim();
+  }
+
+  // Plain SHA-256 (FIPS 180-4), not crypto.subtle.digest — subtle only runs
+  // in a "secure context" (https or localhost) and throws on file://, which
+  // would break opening these files directly for local dev. This has no
+  // such restriction and is synchronous, so the click handler below doesn't
+  // need to become async. NODES stores answerHash (a hash), never the
+  // answer itself — see the comment on NODES above for why that matters.
+  function sha256Hex(str) {
+    const K = [
+      0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+      0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+      0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+      0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+      0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+      0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+      0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+      0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
+    ];
+    const H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+
+    // UTF-8 encode (handles surrogate pairs, though every answer here is plain ASCII)
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+      let code = str.codePointAt(i);
+      if (code > 0xFFFF) i++;
+      if (code < 0x80) bytes.push(code);
+      else if (code < 0x800) bytes.push(0xC0 | (code >> 6), 0x80 | (code & 0x3F));
+      else if (code < 0x10000) bytes.push(0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
+      else bytes.push(0xF0 | (code >> 18), 0x80 | ((code >> 12) & 0x3F), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F));
+    }
+
+    // Pad to a multiple of 64 bytes: 0x80, then zeros, then the original
+    // bit-length as a big-endian 64-bit int (top 4 bytes are always 0 here
+    // — no answer is anywhere near 2^32 bits long).
+    const bitLen = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    for (let i = 0; i < 4; i++) bytes.push(0);
+    bytes.push((bitLen >>> 24) & 0xFF, (bitLen >>> 16) & 0xFF, (bitLen >>> 8) & 0xFF, bitLen & 0xFF);
+
+    const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+
+    for (let chunkStart = 0; chunkStart < bytes.length; chunkStart += 64) {
+      const w = new Array(64).fill(0);
+      for (let i = 0; i < 16; i++) {
+        w[i] = ((bytes[chunkStart + i*4] << 24) | (bytes[chunkStart + i*4+1] << 16) |
+                (bytes[chunkStart + i*4+2] << 8) | (bytes[chunkStart + i*4+3])) >>> 0;
+      }
+      for (let i = 16; i < 64; i++) {
+        const s0 = rotr(w[i-15], 7) ^ rotr(w[i-15], 18) ^ (w[i-15] >>> 3);
+        const s1 = rotr(w[i-2], 17) ^ rotr(w[i-2], 19) ^ (w[i-2] >>> 10);
+        w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0;
+      }
+
+      let [a, b, c, d, e, f, g, h] = H;
+      for (let i = 0; i < 64; i++) {
+        const S1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25);
+        const ch = (e & f) ^ (~e & g);
+        const temp1 = (h + S1 + ch + K[i] + w[i]) >>> 0;
+        const S0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const temp2 = (S0 + maj) >>> 0;
+        h = g; g = f; f = e; e = (d + temp1) >>> 0;
+        d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
+      }
+      H[0]=(H[0]+a)>>>0; H[1]=(H[1]+b)>>>0; H[2]=(H[2]+c)>>>0; H[3]=(H[3]+d)>>>0;
+      H[4]=(H[4]+e)>>>0; H[5]=(H[5]+f)>>>0; H[6]=(H[6]+g)>>>0; H[7]=(H[7]+h)>>>0;
+    }
+
+    return H.map(x => x.toString(16).padStart(8, "0")).join("");
   }
 
   // Locked-node lore stand-in: every letter swapped for a random one,
@@ -914,10 +990,10 @@
         const val = input.value.trim();
         if (!val) {
           msg.textContent = "// enter something to see this state.";
-        } else if (n.answer && normalizeAnswer(val) === normalizeAnswer(n.answer)) {
+        } else if (n.answerHash && sha256Hex(normalizeAnswer(val)) === n.answerHash) {
           msg.textContent = "// ACCESS GRANTED — segment neutralized.";
-          n.submittedAnswer = val; // exactly what was typed (not the canonical n.answer) — read back below once cleared
-          clearNode(n.id); // placeholder check only — swap for a real validator later
+          n.submittedAnswer = val; // exactly what was typed — read back below once cleared
+          clearNode(n.id); // no server round-trip; the answer itself is never in this file, only its hash
         } else {
           msg.textContent = "// ACCESS DENIED — incorrect.";
         }
@@ -926,8 +1002,10 @@
     }
 
     // Once cleared, the flag box stays but goes read-only/pre-filled — "here's
-    // what solved this" rather than disappearing. Falls back to n.answer if
-    // no submittedAnswer was recorded (e.g. an older save from before this existed).
+    // what solved this" rather than disappearing. There's no canonical
+    // plaintext answer to fall back to if submittedAnswer is missing (e.g.
+    // an older save from before this field existed) — n.answerHash can't be
+    // turned back into the flag, that's the whole point of hashing it.
     if (n.status === "cleared") {
       const demo = document.createElement("div");
       demo.className = "flag-demo flag-demo-solved";
@@ -940,7 +1018,7 @@
       input.readOnly = true;
       input.disabled = true;
       input.setAttribute("aria-label", "Submitted flag");
-      input.value = n.submittedAnswer || n.answer || ""; // DOM property, not an HTML attribute — safe against user-typed quotes/markup
+      input.value = n.submittedAnswer || "(not recorded)"; // DOM property, not an HTML attribute — safe against user-typed quotes/markup
       demo.querySelector(".flag-row").appendChild(input);
       briefingEl.appendChild(demo);
     }
