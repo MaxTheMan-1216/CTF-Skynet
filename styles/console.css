@@ -184,7 +184,14 @@
        it. "safe" falls back to start-alignment instead so the whole skull
        stays reachable. */
     align-items: safe center;
-    container-type: inline-size;
+    /* size, not inline-size: .map needs a cqh (container-query-height) unit
+       below to size itself against this box's real height — inline-size
+       containers only ever expose cqw/cqi. .map-wrap qualifies for size
+       containment cleanly: its own size already comes purely from being a
+       grid item stretched by main (see main's own rule above), never from
+       its content, in both axes — nothing here depends on .map's size to
+       find its own, so there's no circularity for containment to trip over. */
+    container-type: size;
   }
   .map-wrap::-webkit-scrollbar { height: 8px; }
   .map-wrap::-webkit-scrollbar-thumb { background: var(--panel-edge); }
@@ -235,17 +242,19 @@
   .map {
     position: relative;
     width: 100%;
-    max-width: 950px;
-    /* .map-wrap's own height is already correct (it's a grid item of main,
-       stretched by the default align-items:stretch to fill main's real
-       content height — viewport minus the header bar). max-height:100% caps
-       .map against that real space instead of a raw vh guess, which had no
-       way to know about the header and came out taller than the leftover
-       room on shorter screens (1080p and under), forcing a scrollbar that
-       taller screens never showed. Paired with aspect-ratio below, the
-       browser shrinks the width to match whenever height is the binding
-       constraint, the same way object-fit: contain would. */
-    max-height: 100%;
+    /* Same shape as the original vh-based cap (a definite width, with
+       aspect-ratio below deriving height from it) — a max-height attempt
+       here instead was the wrong tool: .map is a flex item of .map-wrap
+       with align-items:safe center (not stretch) and flex-shrink:0, so its
+       width gets locked in by the flex algorithm before aspect-ratio or
+       max-height get any say over the cross axis — max-height clamped the
+       number but the box never actually shrank. cqh (container query
+       height, see .map-wrap's container-type above) is 1% of .map-wrap's
+       real height — already correctly "viewport minus the header bar" via
+       the grid stretch — so this fixes the same bug the vh version had
+       (no idea about the header) without fighting the flex cross axis:
+       it's a width computed up front, not a height clamped after the fact. */
+    max-width: min(97.5cqh, 950px);
     /* must match #skull-art's viewBox aspect ratio (console.html) exactly,
        or preserveAspectRatio letterboxes the SVG inside this box */
     aspect-ratio: 1518 / 1483;
@@ -316,13 +325,11 @@
     /* Same specificity as the base rule, so this has to come after it in
        source order to win. A height cap stops being right once the layout
        stacks to one column and the whole page scrolls normally instead of
-       just .map-wrap internally — width cap instead. max-height:none isn't
-       just for symmetry either: main drops flex:1 at this breakpoint (see
-       its own 760px override above), so .map-wrap no longer has a
-       stretched, definite height for a percentage max-height to resolve
-       against in the first place — reset explicitly so nothing ambiguous
-       is left relying on that. */
-    .map { max-width: min(97.5vw, 700px); max-height: none; } /* same 25% bump as the desktop cap above */
+       just .map-wrap internally — width cap instead. (cqh would be moot
+       here anyway: main drops flex:1 at this breakpoint, so .map-wrap no
+       longer has a definite, content-independent height for size
+       containment to establish in the first place.) */
+    .map { max-width: min(97.5vw, 700px); } /* same 25% bump as the desktop cap above */
 
     /* .map-wrap already spans the full width in this single-column layout,
        so the desktop-only re-center shift has nothing to center against. */
