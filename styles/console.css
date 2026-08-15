@@ -119,11 +119,41 @@
     right: clamp(16px, 4vw, 40px);
     z-index: 5;
     max-width: min(420px, calc(100vw - 32px));
-    padding: 14px;
+    /* Extra top padding, not the uniform 14px the side/bottom keep — makes
+       room for .fragments-close (below) so it sits in its own space above
+       the text instead of overlapping whatever the first line happens to
+       be. */
+    padding: 32px 14px 14px;
     background: var(--panel);
     border: 1px solid var(--panel-edge);
     border-radius: 3px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  /* Always-reachable way to close the panel that lives inside it — see
+     buildFragmentsCloseButton's own comment in console.js for why this
+     exists alongside (not instead of) #fragments-toggle's own click-to-
+     close and the click-outside-to-close listener: on narrower layouts
+     the toggle itself could end up behind the open panel, so closing
+     can't depend on reaching it specifically. */
+  .fragments-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--steel-dim);
+  }
+  .fragments-close:hover, .fragments-close:focus-visible {
+    color: var(--phosphor);
+  }
+  .fragments-close:focus-visible {
+    outline: 1px solid var(--signal);
+    outline-offset: 2px;
   }
   .fragments-message {
     margin: 0;

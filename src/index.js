@@ -50,9 +50,11 @@
 // one exception to "copied from NODES[]" — it has no NODES[] counterpart
 // at all (DECO_NODES isn't part of NODES/CHAIN), it's the bonus level
 // unlocked by finding all 4 decorative fragments (see REWARDS below and
-// the DECO_NODES comment in console.js). Its hash is of the 4 fragments
-// assembled ("crystal peak shelter three", normalizeAnswer'd) — same
-// compute-don't-hand-type discipline as every hash here.
+// the DECO_NODES comment in console.js). Its hash is NOT of the fragments
+// themselves anymore — those are now the *key* to a Vigenère cipher shown
+// once all 4 are found (DECO_CIPHERTEXT in console.js), and this hash is
+// of that cipher's plaintext ("there are others", normalizeAnswer'd) —
+// same compute-don't-hand-type discipline as every hash here.
 const ANSWER_HASHES = {
   n1: "e43781640b80cf82007d12b66a5611931ad569166b98543e9ffd0d727462a126",
   n2: "28e211aeed4eb2e1740d7da242b4b34c676875b2691ccb247761ae87f2bd1b2e",
@@ -62,7 +64,7 @@ const ANSWER_HASHES = {
   n6: "10c08ff84069d1ed0f8ff2622ac710954df7260a1c7cb38c983c35a4208a6511",
   n7: "f55de374352faf2a5136a98a91c092fd290a7366c1838bc3d1819937491f0cb1",
   b1: "45e8716890d299afde59779a3e129b237d250d8702cfd4952949ebec90eb6c2a",
-  deco: "f751a5cae76d2fb81fe1cf700b0f058488b22526c8d3ae23385337fe5fc5f8c6",
+  deco: "3a21a6e6253dafbb08f466c04123ef5b92df9c12e4f50d4b50516995acc3b528",
 };
 
 // Extra payload returned only alongside a *correct* answer for the given

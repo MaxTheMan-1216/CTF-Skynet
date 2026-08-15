@@ -302,6 +302,19 @@
   // only the payoff is), see renderFragmentsPanel near handleDecoClick.
   const DECO_BONUS_LORE = "Four signals, scattered on purpose — losing all four at once was never survivable. Crystal Peak, Shelter Three. That facility went dark on paper decades ago. Paper lies.";
 
+  // The real puzzle, added after the bonus level's first pass just asked
+  // for the fragments retyped verbatim — that wasn't a puzzle, just a
+  // memory check. Now the 4 fragments, concatenated in DECO_NODES' own
+  // array order (CRYSTAL+PEAK+SHELTER+THREE — order matters, a shuffled
+  // key decrypts to garbage), are the Vigenère key for this ciphertext,
+  // same mechanism NODE_05 already teaches ("it's not one alphabet, it's
+  // several, cycling"), just with a discovered phrase instead of a
+  // numeric key this time. Plaintext is "there are others" — computed via
+  // Python and round-tripped before committing, not hand-derived; verify
+  // the same way if this ever needs to change (see CLAUDE.md's regenerate
+  // guidance, same discipline as any other cipher value in this project).
+  const DECO_CIPHERTEXT = "VYCJX ACT STRWYW";
+
   // Set true the moment CORE clears (live or restored) — every ambient-loop
   // play() site (initConsole's autoplay, releaseAmbient's resume, the audio
   // toggle) checks this first and skips playback once it's set. The run is
@@ -494,18 +507,70 @@
   const decoAudio = document.getElementById("deco-audio");
   if (decoAudio) decoAudio.volume = 0.4; // -40% from the clip's native level
 
-  // #fragments-toggle/#fragments-panel (console.html) — hidden until the
-  // first fragment is found, same "no advance affordance" rule as the deco
-  // hotspots themselves. Kept as a small stateless helper rather than
-  // folded into handleDecoClick directly so the boot-restore path below
-  // can reuse the HUD-sync half without also rebuilding the panel body.
+  // #fragments-toggle/#fragments-panel (console.html) — hidden until all 4
+  // fragments are found, not just the first: same "no advance affordance"
+  // rule as the deco hotspots themselves, just carried further than the
+  // earlier "shows partial progress" version did — nothing at all hints
+  // this exists until the whole hidden set is already complete, no "2/4"
+  // along the way to notice and go looking for the rest of. Kept as a
+  // small stateless helper rather than folded into handleDecoClick
+  // directly so the boot-restore path below can reuse the HUD-sync half
+  // without also rebuilding the panel body.
   function updateFragmentsHud() {
     const toggle = document.getElementById("fragments-toggle");
     const state = document.getElementById("fragments-state");
-    if (!toggle || !state || decoFound.length === 0) return;
+    if (!toggle || !state || decoFound.length < DECO_NODES.length) return;
     toggle.hidden = false;
     state.textContent = decoFound.length + "/" + DECO_NODES.length;
     if (decoBonusReward !== null) toggle.classList.add("complete");
+  }
+
+  // On lower resolutions/narrower layouts #fragments-panel can render
+  // partially behind other page content, making #fragments-toggle itself
+  // hard or impossible to click again to close it — the original single
+  // way to close it. openFragmentsPanel/closeFragmentsPanel centralize
+  // that state change into one place regardless of *what* triggers it
+  // (the toggle, a completing deco click, the close button below, or a
+  // click outside the panel — see all four call sites), and
+  // fragmentsPanelJustOpened is what stops the "click outside closes it"
+  // listener from immediately closing a panel that a *different* part of
+  // this same click just opened: the click that completes the 4th
+  // fragment (or opens via the toggle) still bubbles all the way up to
+  // document after handleDecoClick/the toggle handler runs, and without
+  // this guard that bubbled click would read as "outside the panel" and
+  // close it on the same tick it opened — a one-frame open-then-shut
+  // flicker, not a real bug in the outside-click logic itself, just an
+  // ordering trap "click outside to close" implementations commonly fall
+  // into. Consumed (reset to false) the first time the document listener
+  // sees it, so it never masks a *later*, genuine outside click.
+  let fragmentsPanelJustOpened = false;
+  function openFragmentsPanel() {
+    const panel = document.getElementById("fragments-panel");
+    const toggle = document.getElementById("fragments-toggle");
+    if (panel) panel.hidden = false;
+    if (toggle) toggle.setAttribute("aria-expanded", "true");
+    fragmentsPanelJustOpened = true;
+  }
+  function closeFragmentsPanel() {
+    const panel = document.getElementById("fragments-panel");
+    const toggle = document.getElementById("fragments-toggle");
+    if (panel) panel.hidden = true;
+    if (toggle) toggle.setAttribute("aria-expanded", "false");
+  }
+
+  // Small "×" button prepended into #fragments-panel's own content by
+  // renderFragmentsPanel below (both branches) — an always-reachable way
+  // to close the panel that lives *inside* it, so it's never dependent on
+  // #fragments-toggle still being reachable/on-screen the way the toggle-
+  // only close path was.
+  function buildFragmentsCloseButton() {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "fragments-close";
+    btn.setAttribute("aria-label", "Close");
+    btn.textContent = "×";
+    btn.addEventListener("click", closeFragmentsPanel);
+    return btn;
   }
 
   // Rebuilds #fragments-panel's contents from scratch every call — same
@@ -517,12 +582,12 @@
   // worth rendering — the toggle itself stays hidden before the first
   // find via updateFragmentsHud, this just has nothing to show in between).
   // Only builds *content* — never touches panel.hidden itself; that's
-  // handleDecoClick (the live completing click) and the manual toggle
-  // handler's job, see both below.
+  // openFragmentsPanel/closeFragmentsPanel's job, see all their call sites.
   function renderFragmentsPanel() {
     const panel = document.getElementById("fragments-panel");
     if (!panel) return;
     panel.innerHTML = "";
+    panel.appendChild(buildFragmentsCloseButton());
 
     if (decoBonusReward !== null) {
       const found = document.createElement("p");
@@ -547,9 +612,26 @@
     lore.textContent = DECO_BONUS_LORE;
     const found = document.createElement("p");
     found.className = "fragments-message";
-    found.textContent = "Signal fragments recovered: " + DECO_NODES.map(n => n.fragment).join(", ") + ". Assemble and submit.";
+    found.textContent = "Signal fragments recovered: " + DECO_NODES.map(n => n.fragment).join(", ") + ". In that order, they're a key.";
     panel.appendChild(lore);
     panel.appendChild(found);
+
+    // Same cipher-block markup renderBriefing uses for every node's own
+    // puzzle payload (label + <pre class="cipher-text">) — reused here so
+    // this reads as the same kind of thing the rest of the game already
+    // taught, not a one-off. DECO_CIPHERTEXT's own comment has the actual
+    // mechanism and how it was verified.
+    const cipherBlock = document.createElement("div");
+    cipherBlock.className = "cipher-block";
+    const cipherLabel = document.createElement("div");
+    cipherLabel.className = "label";
+    cipherLabel.textContent = "Residual Transmission — Keyed Cipher";
+    cipherBlock.appendChild(cipherLabel);
+    const cipherPre = document.createElement("pre");
+    cipherPre.className = "cipher-text";
+    cipherPre.textContent = DECO_CIPHERTEXT;
+    cipherBlock.appendChild(cipherPre);
+    panel.appendChild(cipherBlock);
 
     // Same flag-demo markup and async-fetch-to-CHECK_ENDPOINT handler as
     // renderBriefing's own submission form (see that code) — mirrored
@@ -646,10 +728,7 @@
     // find just updates state quietly instead, per updateFragmentsHud's own
     // "no advance affordance" reasoning.
     if (decoFound.length === DECO_NODES.length && decoBonusReward === null) {
-      const panel = document.getElementById("fragments-panel");
-      const toggle = document.getElementById("fragments-toggle");
-      if (panel) panel.hidden = false;
-      if (toggle) toggle.setAttribute("aria-expanded", "true");
+      openFragmentsPanel();
     }
   }
 
@@ -690,11 +769,25 @@
       if (decoFound.length < DECO_NODES.length) return; // nothing to show yet, quietly do nothing rather than open an empty panel
       const panel = document.getElementById("fragments-panel");
       if (!panel) return;
-      const opening = panel.hidden;
-      panel.hidden = !opening;
-      fragmentsToggle.setAttribute("aria-expanded", String(opening));
+      if (panel.hidden) openFragmentsPanel(); else closeFragmentsPanel();
     });
   }
+
+  // Closing the panel no longer depends on hitting #fragments-toggle again
+  // (see openFragmentsPanel/closeFragmentsPanel's own comment for why that
+  // could fail on narrower layouts) — a click anywhere outside both the
+  // panel and the toggle closes it too, standard dropdown/popover
+  // behavior. fragmentsPanelJustOpened is what stops this from closing a
+  // panel a *different* handler on this exact same click (a completing
+  // deco find, or the toggle's own open branch just above) just opened —
+  // see that flag's own comment for the full ordering explanation.
+  document.addEventListener("click", (e) => {
+    if (fragmentsPanelJustOpened) { fragmentsPanelJustOpened = false; return; }
+    const panel = document.getElementById("fragments-panel");
+    if (!panel || panel.hidden) return;
+    if (panel.contains(e.target) || (fragmentsToggle && fragmentsToggle.contains(e.target))) return;
+    closeFragmentsPanel();
+  });
 
   function makeListItem(n, showStem, i) {
     // Every node is tappable regardless of status — always a real <button>.
