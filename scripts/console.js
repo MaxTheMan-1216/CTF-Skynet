@@ -166,10 +166,15 @@
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
       if (!confirm("Reset all node progress? This can't be undone.")) return;
-      // Both keys — DECO_STORAGE_KEY (below) tracks the 4 decorative
-      // easter eggs separately; skipping it would leave them stuck green.
+      // Three keys — DECO_STORAGE_KEY (below) tracks the 4 decorative
+      // easter eggs separately (skipping it would leave them stuck green),
+      // and ELAPSED_KEY (declared near the elapsed-time stat further down)
+      // is Session T+'s own accumulated-seconds total — skipping it would
+      // reset every node but leave the clock still counting up from
+      // whatever total the pre-reset playthrough had already reached.
       try { localStorage.removeItem(STORAGE_KEY); } catch (err) { /* ignore */ }
       try { localStorage.removeItem(DECO_STORAGE_KEY); } catch (err) { /* ignore */ }
+      try { localStorage.removeItem(ELAPSED_KEY); } catch (err) { /* ignore */ }
       window.location.reload();
     });
   }
@@ -1205,14 +1210,37 @@
   tick();
   setInterval(tick, 1000);
 
-  const bootAt = Date.now();
-  setInterval(() => {
-    const s = Math.floor((Date.now() - bootAt) / 1000);
-    const h = String(Math.floor(s / 3600)).padStart(2, "0");
-    const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-    const sec = String(s % 60).padStart(2, "0");
+  // "Session T+" tracks accumulated active playtime — time actually spent
+  // with this tab open, paused while the browser's closed — not wall-clock
+  // time since first visit (an earlier version of this tracked that
+  // instead; ELAPSED_KEY replaces SESSION_START_KEY entirely, nothing to
+  // migrate). ELAPSED_KEY holds the running total in whole seconds,
+  // written on every tick (once a second) rather than only on a clean
+  // unload: beforeunload/visibilitychange don't reliably fire on every way
+  // a tab goes away (mobile backgrounding, a killed tab, a crash), so
+  // relying on one of those would risk losing an entire session's time on
+  // exactly the closes most likely to be ungraceful. Writing every second
+  // instead bounds any loss to under a second, regardless of how it closes.
+  const ELAPSED_KEY = "skynet:elapsed-seconds";
+  let accumulatedSeconds = 0;
+  try {
+    const saved = parseInt(localStorage.getItem(ELAPSED_KEY), 10);
+    if (Number.isFinite(saved) && saved >= 0) accumulatedSeconds = saved;
+  } catch (err) {
+    // ignore — this session's count just starts from 0, same as if
+    // storage had never been wired up at all
+  }
+  const sessionStartAt = Date.now(); // this load's own reference point — not persisted itself, only accumulatedSeconds is
+  function tickElapsed() {
+    const totalSeconds = accumulatedSeconds + Math.floor((Date.now() - sessionStartAt) / 1000);
+    const h = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const sec = String(totalSeconds % 60).padStart(2, "0");
     document.getElementById("stat-elapsed").textContent = `${h}:${m}:${sec}`;
-  }, 1000);
+    try { localStorage.setItem(ELAPSED_KEY, String(totalSeconds)); } catch (err) { /* ignore — just won't persist this tick */ }
+  }
+  tickElapsed(); // matches tick()'s own immediate-call-then-interval pattern just above — no 1s flash of stale/zeroed text on load
+  setInterval(tickElapsed, 1000);
 
   // ---------- ambient audio ----------
   const audioEl = document.getElementById("theme-audio");
