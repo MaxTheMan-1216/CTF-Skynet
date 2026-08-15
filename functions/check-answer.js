@@ -1,37 +1,45 @@
-// Skynet CTF — answer-checking Worker.
+// Skynet CTF — answer-checking Pages Function.
 //
 // This exists to close one specific gap: scripts/console.js used to ship
 // n.answerHash straight to the browser and compare
 // sha256Hex(normalizeAnswer(guess)) === n.answerHash locally. Anyone who
 // viewed source had the hash and the exact normalize/hash algorithm in
 // hand, so they could brute-force-verify candidate guesses against their
-// own SHA-256 implementation (or the site's own submit button, which has
+// own SHA-256 implementation (or the site's own submit button, which had
 // no rate limit either) as many times as they wanted, for free, with no
 // puzzle-solving required for the verification step itself.
 //
 // The fix isn't "hide the check better" — anything that runs in the
 // player's own browser can always be read back out of it, full stop, no
 // matter how it's obfuscated. The fix is to not ship the check to the
-// browser at all. This Worker holds the hashes instead; the browser now
+// browser at all. This file holds the hashes instead; the browser now
 // sends a raw guess and gets back nothing but true/false. There's no hash
 // to extract, and — the part client-side code structurally cannot do at
-// all — this Worker enforces a real rate limit, because the enforcement
-// lives somewhere the player doesn't control.
+// all — this enforces a real rate limit, because the enforcement lives
+// somewhere the player doesn't control.
+//
+// Cloudflare Pages Function, not a standalone Worker: file-based routing
+// means this file alone, at functions/check-answer.js, becomes the
+// /check-answer route — no separate deploy step, it ships automatically
+// with every normal Pages build (the same git push that already deploys
+// index.html/console.html). Same origin as the site itself, so unlike a
+// cross-origin Worker this needs no CORS headers or OPTIONS-preflight
+// handling at all: browsers only enforce CORS for cross-origin requests,
+// and fetch("/check-answer") from console.html never leaves this origin.
 //
 // Explicit non-goal: this does not stop someone from directly editing
 // their own localStorage / calling clearNode() from devtools to fake a
 // "solved" state — that's a separate problem (client-authoritative game
 // state) that would need real server-tracked sessions to close, a much
-// bigger change than this. This Worker only removes the free
-// guess-checking oracle; the game's progress tracking is unchanged.
+// bigger change than this. This only removes the free guess-checking
+// oracle; the game's progress tracking is unchanged.
 
-// These are the same hash values scripts/console.js's NODES array used to
-// carry as answerHash — copied verbatim when the check moved here, not
-// regenerated. This is now the ONLY copy: NODES[] no longer has an
-// answerHash field at all. If a node's answer is ever changed, regenerate
-// the hash here the same careful way CLAUDE.md already describes (compute
-// it, verify, don't hand-type it), then `wrangler deploy` — there's
-// nothing left to update on the console.js side for this specific field.
+// Identical to the answerHash values NODES[] in scripts/console.js used to
+// carry — copied verbatim, not regenerated. This is now the only copy:
+// NODES[] has no answerHash field at all. If a node's answer is ever
+// changed, regenerate the hash here the same careful way CLAUDE.md
+// describes (compute it, verify, don't hand-type it) — nothing needs
+// updating on the console.js side for this specific field.
 const ANSWER_HASHES = {
   n1: "e43781640b80cf82007d12b66a5611931ad569166b98543e9ffd0d727462a126",
   n2: "28e211aeed4eb2e1740d7da242b4b34c676875b2691ccb247761ae87f2bd1b2e",
@@ -60,8 +68,8 @@ function normalizeAnswer(s) {
 // Real Web Crypto, not console.js's hand-rolled sha256Hex — that version
 // exists purely because crypto.subtle refuses to run outside a secure
 // context and throws on file://, which local dev over file:// needs to
-// avoid. A Worker always runs server-side in a secure context, so the
-// native implementation just works and there's no reason to port the
+// avoid. A Pages Function always runs server-side in a secure context, so
+// the native implementation just works and there's no reason to port the
 // hand-written one over.
 async function sha256Hex(str) {
   const bytes = new TextEncoder().encode(str);
@@ -82,22 +90,22 @@ async function sha256Hex(str) {
 // not a target under sustained parallel attack) that's an acceptable
 // trade-off against the complexity of a strictly-consistent alternative
 // (e.g. a Durable Object per IP). If this ever needs to be airtight, that
-// upgrade path exists — Cloudflare Workers also now has a purpose-built
-// Rate Limiting binding for exactly this; check current docs before
-// reaching for it, since its config syntax has moved since this was
-// written and isn't reproduced here to avoid shipping stale syntax.
+// upgrade path exists — Cloudflare also has a purpose-built Rate Limiting
+// binding for exactly this now; check current docs before reaching for
+// it, since its config syntax has moved since this was written and isn't
+// reproduced here to avoid shipping stale syntax.
 const RATE_LIMIT = 20;
 const RATE_WINDOW_S = 60;
 const RATE_KEY_TTL_S = RATE_WINDOW_S + 10; // outlives the window slightly so a read right at expiry doesn't race a just-vanished key
 
-async function checkRateLimit(env, ip) {
+async function checkRateLimit(kv, ip) {
   const key = `rl:${ip}`;
   const now = Date.now();
-  const raw = await env.RATE_LIMIT.get(key);
+  const raw = await kv.get(key);
   const state = raw ? JSON.parse(raw) : null;
 
   if (!state || now - state.windowStart > RATE_WINDOW_S * 1000) {
-    await env.RATE_LIMIT.put(key, JSON.stringify({ windowStart: now, count: 1 }), {
+    await kv.put(key, JSON.stringify({ windowStart: now, count: 1 }), {
       expirationTtl: RATE_KEY_TTL_S,
     });
     return { limited: false };
@@ -108,75 +116,61 @@ async function checkRateLimit(env, ip) {
     return { limited: true, retryAfter };
   }
 
-  await env.RATE_LIMIT.put(key, JSON.stringify({ windowStart: state.windowStart, count: state.count + 1 }), {
+  await kv.put(key, JSON.stringify({ windowStart: state.windowStart, count: state.count + 1 }), {
     expirationTtl: RATE_KEY_TTL_S,
   });
   return { limited: false };
 }
 
-// Locked to one configured origin (env.ALLOWED_ORIGIN, set in
-// wrangler.toml), not "*" — CORS isn't the actual security boundary here
-// (it's enforced by browsers, not by this Worker; a script hitting this
-// endpoint directly with curl ignores it entirely — the rate limiter above
-// is what actually stops brute-forcing), but there's no reason to let
-// arbitrary other websites' JS call this API on a visitor's behalf either.
-function corsHeaders(env) {
-  return {
-    "Access-Control-Allow-Origin": env.ALLOWED_ORIGIN,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-}
-
-function json(body, status, env) {
+function json(body, status) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(env) },
+    headers: { "Content-Type": "application/json" },
   });
 }
 
-export default {
-  async fetch(request, env) {
-    // Browsers send an OPTIONS preflight before any cross-origin POST with
-    // a JSON body — without a response here, the browser blocks the real
-    // POST before it's ever sent.
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(env) });
-    }
-    if (request.method !== "POST") {
-      return json({ error: "method_not_allowed" }, 405, env);
-    }
+// Pages Functions route per HTTP method — this file exporting only
+// onRequestPost means GET/PUT/etc. to /check-answer fall through to
+// Cloudflare's normal "no matching function, no static asset" 404,
+// without any explicit method-not-allowed handling needed here.
+export async function onRequestPost({ request, env }) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "bad_request" }, 400);
+  }
 
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return json({ error: "bad_request" }, 400, env);
-    }
+  const { nodeId, guess } = body || {};
+  // Length cap on guess is just sane-input hygiene, not the anti-abuse
+  // measure — the rate limiter below is.
+  if (typeof nodeId !== "string" || typeof guess !== "string" || guess.length > 200) {
+    return json({ error: "bad_request" }, 400);
+  }
+  if (!(nodeId in ANSWER_HASHES)) {
+    return json({ error: "unknown_node" }, 404);
+  }
 
-    const { nodeId, guess } = body || {};
-    // Length cap on guess is just sane-input hygiene, not the anti-abuse
-    // measure — the rate limiter below is.
-    if (typeof nodeId !== "string" || typeof guess !== "string" || guess.length > 200) {
-      return json({ error: "bad_request" }, 400, env);
-    }
-    if (!(nodeId in ANSWER_HASHES)) {
-      return json({ error: "unknown_node" }, 404, env);
-    }
-
+  // env.RATE_LIMIT is the KV binding — created via the Cloudflare
+  // dashboard's Pages project settings (Functions -> KV namespace
+  // bindings), not by this code. See functions/README.md for the
+  // one-time setup. Missing binding (not set up yet) fails safe: treated
+  // as "always allow" rather than crashing every guess, since a
+  // misconfigured rate limiter shouldn't take the whole puzzle down.
+  if (env.RATE_LIMIT) {
     // CF-Connecting-IP is set by Cloudflare itself at their edge, after
     // the request has already passed through their network — a client can
     // put anything it wants in its own request, but can't override the
     // value Cloudflare records here, which is what makes it safe to key
     // rate limiting off.
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    const { limited, retryAfter } = await checkRateLimit(env, ip);
+    const { limited, retryAfter } = await checkRateLimit(env.RATE_LIMIT, ip);
     if (limited) {
-      return json({ error: "rate_limited", retryAfter }, 429, env);
+      return json({ error: "rate_limited", retryAfter }, 429);
     }
+  }
 
-    const hash = await sha256Hex(normalizeAnswer(guess));
-    const correct = hash === ANSWER_HASHES[nodeId];
-    return json({ correct }, 200, env);
-  },
-};
+  const hash = await sha256Hex(normalizeAnswer(guess));
+  const correct = hash === ANSWER_HASHES[nodeId];
+  return json({ correct }, 200);
+}
