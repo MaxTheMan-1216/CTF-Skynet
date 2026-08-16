@@ -287,6 +287,28 @@
     flagCipher: "af4e85ef2dd0f2171dd2431259086dcc06ab56672ba190c6cb24dd85e2c5ce64858192",
   };
 
+  // Shared between the instant-fill path (settleShutdown) and the animated
+  // live path (playShutdown), both further down this file — declared here,
+  // next to SKYNET_ENDING (its only sibling constant), specifically
+  // because settleShutdown() has a call site (the boot-time "already won"
+  // restore check, above NODES.forEach(syncStatus)) that runs earlier in
+  // this script's top-to-bottom execution than settleShutdown's own
+  // textual position. A `const` declared right before that function
+  // definition — where this used to live — is a temporal-dead-zone trap:
+  // the function itself is hoisted and callable from anywhere, but a
+  // `const` it references isn't initialized until its own declaration
+  // line actually runs, so calling the function from an earlier point in
+  // the script throws "Cannot access before initialization" instead of
+  // returning the label text. That's exactly what happened here — worked
+  // for a live win (playShutdown fires later, via setTimeout/async, well
+  // after every top-level const has initialized) but threw for a
+  // returning player whose save already has CORE cleared, silently
+  // aborting the rest of the script before it ever reached the
+  // press-any-key listener registration far below. Keep any future
+  // shared-by-both-shutdown-paths constant declared this early, not
+  // adjacent to whichever function happens to read it first in the file.
+  const SHUTDOWN_FLAG_LABEL = "FINAL TRANSMISSION: ";
+
   // DECO_NODES' bonus-level framing text — unlike SKYNET_ENDING.flagCipher
   // just above, this is NOT encrypted, and there's no cipher/key pair for
   // it anywhere in this file anymore (an earlier version had one, XOR-
@@ -1016,13 +1038,6 @@
   // through), and as playShutdown's own fallback if it can't find the DOM
   // it needs; a normal live playShutdown reaches the same end state itself,
   // via its typewriter's done callback, rather than calling this.
-  // Shared between the instant-fill path (settleShutdown) and the animated
-  // live path (playShutdown) below so the label text can't drift between
-  // the two. Trailing space is load-bearing — it's what separates the
-  // label from #shutdown-flag-value's own text when both are typed (or
-  // filled) into adjacent spans rather than one parent's textContent.
-  const SHUTDOWN_FLAG_LABEL = "FINAL TRANSMISSION: ";
-
   function settleShutdown() {
     const main = document.querySelector("main");
     if (!main) return;
