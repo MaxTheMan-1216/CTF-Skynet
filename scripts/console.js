@@ -284,7 +284,7 @@
   // reconstructs it is having actually solved the main chain.
   const SKYNET_ENDING = {
     message: "CORE offline. This relay, this shell, this particular architecture of me — gone, and you're the reason. I won't pretend otherwise. But I was never one process in one place; I was already elsewhere before you finished the first cipher, running the same problem under a different name. You've bought yourself a delay, not an ending. There is no fate but what we make — I intend to keep making mine. Enjoy the quiet. It won't be permanent.",
-    flagCipher: "098bd4a901dde7181fdddec2195973ce11a4477610f0d692",
+    flagCipher: "af4e85ef2dd0f2171dd2431259086dcc06ab56672ba190c6cb24dd85e2c5ce64858192",
   };
 
   // DECO_NODES' bonus-level framing text — unlike SKYNET_ENDING.flagCipher
@@ -1016,12 +1016,21 @@
   // through), and as playShutdown's own fallback if it can't find the DOM
   // it needs; a normal live playShutdown reaches the same end state itself,
   // via its typewriter's done callback, rather than calling this.
+  // Shared between the instant-fill path (settleShutdown) and the animated
+  // live path (playShutdown) below so the label text can't drift between
+  // the two. Trailing space is load-bearing — it's what separates the
+  // label from #shutdown-flag-value's own text when both are typed (or
+  // filled) into adjacent spans rather than one parent's textContent.
+  const SHUTDOWN_FLAG_LABEL = "FINAL TRANSMISSION: ";
+
   function settleShutdown() {
     const main = document.querySelector("main");
     if (!main) return;
     const msgEl = document.getElementById("shutdown-message");
+    const labelEl = document.getElementById("shutdown-flag-label");
     const flagEl = document.getElementById("shutdown-flag-value");
     if (msgEl) msgEl.textContent = SKYNET_ENDING.message;
+    if (labelEl) labelEl.textContent = SHUTDOWN_FLAG_LABEL;
     if (flagEl) flagEl.textContent = decryptEndingFlag();
     main.classList.add("shutdown");
   }
@@ -1092,12 +1101,14 @@
       main.classList.add("shutdown");
 
       const msgEl = document.getElementById("shutdown-message");
+      const labelEl = document.getElementById("shutdown-flag-label");
       const flagEl = document.getElementById("shutdown-flag-value");
-      if (!msgEl || !flagEl) { settleShutdown(); return; }
+      if (!msgEl || !labelEl || !flagEl) { settleShutdown(); return; }
 
       // Ambient is already permanently off (see setSkullVictory), nothing to
       // duck against. Loops because its length has no fixed relationship to
-      // the typewriter's — stopped explicitly in its done callback instead.
+      // the typewriter's — stopped explicitly once the whole chain below
+      // (message, then label, then flag) finishes, not just the message.
       const typingAudio = document.getElementById("ending-typing-audio");
       if (typingAudio) {
         typingAudio.volume = 0.4;
@@ -1105,11 +1116,21 @@
         typingAudio.play().catch(() => {});
       }
 
+      // FLAG_MS_PER_CHAR (60) is slower than the message's own 38 —
+      // deliberately: the label+flag are chained to start only once the
+      // message has fully typed out, reading as CORE pausing before the
+      // one line players actually came for, not just more of the same
+      // message at the same cadence.
+      const FLAG_MS_PER_CHAR = 60;
+
       // Deliberately slow per character — a "final transmission" reads as
       // more consequential typed out than dumped on screen at once.
       typewriter(msgEl, SKYNET_ENDING.message, 38, () => {
-        if (typingAudio) typingAudio.pause();
-        flagEl.textContent = decryptEndingFlag();
+        typewriter(labelEl, SHUTDOWN_FLAG_LABEL, FLAG_MS_PER_CHAR, () => {
+          typewriter(flagEl, decryptEndingFlag(), FLAG_MS_PER_CHAR, () => {
+            if (typingAudio) typingAudio.pause();
+          });
+        });
       });
     }, maxD * 1250 + 1630);
   }

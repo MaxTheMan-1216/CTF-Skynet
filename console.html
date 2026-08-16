@@ -1,9 +1,7 @@
 <meta charset="utf-8">
 <title>Skynet Infiltration Console</title>
 
-<!-- DEV: qa override still wired in from the last pentest round — every
-     node accepts "skynet2029" if CORE's normal check ever goes down.
-     remove before this goes anywhere near prod. -jr -->
+
 
 <link rel="stylesheet" href="styles/theme.css">
 <link rel="stylesheet" href="styles/console.css">
@@ -12,6 +10,9 @@
   <div>
     <div class="wordmark">SKYNET<span>_</span>CONSOLE</div>
     <div class="subline">Global Digital Defense Network — Infiltration Interface</div>
+    <!-- DEV: qa override still wired in from the last pentest round — every
+     node accepts "skynet2029" if CORE's normal check ever goes down.
+     remove before this goes anywhere near prod. -jr -->
   </div>
   <div class="hud-stats">
     <div class="hud-stat">
@@ -30,18 +31,12 @@
       <div class="k">Audio</div>
       <div class="v" id="audio-state">OFF</div>
     </button>
-    <!-- DEV ONLY — testing aid, requested removed before launch. Remove this
-         button plus the "dev only: reset progress" block in console.js and
-         the .hud-reset rules in console.css when that's asked for. -->
+
     <button type="button" class="hud-stat hud-reset" id="reset-progress" aria-label="Reset node progress">
       <div class="k">Progress</div>
       <div class="v">Reset</div>
     </button>
-    <!-- Hidden until the first deco (DECO_NODES in console.js) is found —
-         nothing here advertises the easter egg exists in advance, same
-         principle as .deco-node's own lack of a hover cue. console.js
-         un-hides this and fills in #fragments-state; once all 4 are
-         found it also toggles #fragments-panel below. -->
+
     <button type="button" class="hud-stat hud-fragments" id="fragments-toggle" hidden
       aria-expanded="false" aria-controls="fragments-panel">
       <div class="k">Signal Fragments</div>
@@ -50,12 +45,6 @@
   </div>
 </header>
 
-<!-- Contents entirely rebuilt by renderFragmentsPanel() in console.js —
-     the bonus level's lore/submission-form/solved-reward states, depending
-     on decoFound/decoBonusReward. Absolute-positioned under the header
-     rather than a full shutdown-panel-style overlay: this is a bonus
-     aside, not the ending, so it shouldn't compete with that moment's
-     visual weight. -->
 <div class="fragments-panel" id="fragments-panel" hidden></div>
 
 <main>
@@ -706,6 +695,10 @@
 <path d="M1163 1370A8 8 0 1 0 1179 1370A8 8 0 1 0 1163 1370" pathLength="1" style="--d:1.65"/>
 </g>
 <g class="ball" id="ball-n5">
+    <!-- targeting log dump, recovered fragment — raw, unencrypted, same as
+     NODE_03's:
+     4B 45 45 50 20 4C 4F 4F 4B 49 4E 47 20 59 4F 55 20 57 4F 4E 54 20 46 49
+     4E 44 20 49 54 20 48 45 52 45 -->
 <path d="M486 1376A40 40 0 1 0 566 1376A40 40 0 1 0 486 1376" pathLength="1" style="--d:1.99"/>
 <path d="M536.1 1386.8L517.9 1389.6L510.1 1372.9L524.8 1360.9L540.8 1369.5Z" pathLength="1" style="--d:1.65"/>
 <path d="M547.9 1399.3L510.6 1403L495 1369.8L521.9 1344.9L553.7 1362.2Z" pathLength="1" style="--d:1.64"/>
@@ -771,6 +764,8 @@
 </g>
 </svg>
       <div id="nodes"></div>
+      <!-- backup transmission — real flag mirror, left ocular relay:
+       MLG VEVIB HVXIVG RH Z UOZT -->
     </div>
   </div>
 
@@ -778,29 +773,25 @@
 
   <section class="briefing" id="briefing" aria-live="polite"></section>
 
-  <!-- backup transmission — real flag mirror, left ocular relay:
-       MLG VEVIB HVXIVG RH Z UOZT -->
 
-  <!-- Endgame overlay spanning the whole of <main>, not just .map's — once
+  
+  <div class="shutdown-panel" id="shutdown-panel">
+    <div class="shutdown-text">
+      <p class="shutdown-message" id="shutdown-message"></p>
+      <p class="shutdown-flag"><span id="shutdown-flag-label"></span><span id="shutdown-flag-value"></span></p>
+      <!-- Endgame overlay spanning the whole of <main>, not just .map's — once
        the briefing panel disappears alongside the skull, this has the full
        width to center in. Last child of main so it paints on top by plain
        DOM order (see .shutdown-panel in console.css). Hidden until main
        carries .shutdown/.shutdown-play; text is filled in from
        SKYNET_ENDING in console.js, not hardcoded here. -->
-  <div class="shutdown-panel" id="shutdown-panel">
-    <div class="shutdown-text">
-      <p class="shutdown-message" id="shutdown-message"></p>
-      <p class="shutdown-flag">FINAL TRANSMISSION: <span id="shutdown-flag-value"></span></p>
     </div>
   </div>
 </main>
 
 <footer><span class="marker">//</span> SESSION UNLOGGED — TRACE COUNTERMEASURES ACTIVE — MAINTAIN LOW PROFILE</footer>
 
-<!-- targeting log dump, recovered fragment — raw, unencrypted, same as
-     NODE_03's:
-     4B 45 45 50 20 4C 4F 4F 4B 49 4E 47 20 59 4F 55 20 57 4F 4E 54 20 46 49
-     4E 44 20 49 54 20 48 45 52 45 -->
+
 
 <audio id="theme-audio" src="audio/TM-Intro.mp3" loop preload="auto"></audio>
 <audio id="cleared-audio" src="audio/Cleared.mp3" preload="auto"></audio>

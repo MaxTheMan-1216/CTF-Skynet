@@ -25,18 +25,17 @@
       <div class="gate-row">
         <span class="gate-caret" aria-hidden="true">&gt;</span>
         <input id="gate-input" type="text" spellcheck="false" autocomplete="off" autofocus aria-describedby="gate-msg" />
+        <!-- cyberdyne internal QA — legacy override phrase "no fate" still lives in
+        this build, pending removal before external release -->
       </div>
       <p id="gate-msg" class="gate-msg" role="status" aria-live="polite">&nbsp;</p>
     </form>
   </div>
 </main>
 
-<!-- cyberdyne internal QA — legacy override phrase "no fate" still live in
-     this build, pending removal before external release -->
-
 <!-- cyberdyne internal QA — backup auth string, rotated per security policy
-     ahead of the audit, do not hardcode in plaintext: GUVF BAR VF ABG ERNY
-     RVGURE -->
+ahead of the audit, do not hardcode in plaintext: GUVF BAR VF ABG ERNY
+RVGURE -->
 <audio id="gate-audio" src="audio/Landing-Intro.mp3" loop preload="auto"></audio>
 <audio id="access-audio" src="audio/access_granted.mp3" preload="auto"></audio>
 
