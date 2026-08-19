@@ -75,7 +75,21 @@
 <!-- cyberdyne internal QA — backup auth string, rotated per security policy
 ahead of the audit, do not hardcode in plaintext: GUVF BAR VF ABG ERNY
 RVGURE -->
-<audio id="gate-audio" src="audio/Landing-Intro.mp3" loop preload="auto"></audio>
-<audio id="access-audio" src="audio/access_granted.mp3" preload="auto"></audio>
+<!-- preload="none" (was "auto"), added 2026-08-19 in response to a real
+     "the live site feels laggy" report: Landing-Intro.mp3 is 8.8MB, and
+     preload="auto" was telling every visitor's browser to fetch the whole
+     file immediately on page load, whether or not they ever click past
+     the boot prompt. Playback was already correctly gated behind the
+     first click/keypress (browser autoplay policy, see beginBoot() in
+     gate.js) — only the PREFETCH timing needed to change, not when it's
+     allowed to play. .play() still fetches on demand once actually
+     called; the tradeoff is a small one-time buffering delay the first
+     time audio starts, in exchange for not shipping ~8.8MB to every
+     visitor who never interacts at all. access_granted.mp3 is tiny
+     (31KB) and not the bottleneck, but changed too for consistency —
+     it's also not needed until a correct submission, an event that may
+     never happen for a given visit. -->
+<audio id="gate-audio" src="audio/Landing-Intro.mp3" loop preload="none"></audio>
+<audio id="access-audio" src="audio/access_granted.mp3" preload="none"></audio>
 
 <script src="scripts/gate.js"></script>

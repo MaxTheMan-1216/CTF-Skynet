@@ -793,12 +793,22 @@
 
 
 
-<audio id="theme-audio" src="audio/TM-Intro.mp3" loop preload="auto"></audio>
-<audio id="cleared-audio" src="audio/Cleared.mp3" preload="auto"></audio>
-<audio id="deco-audio" src="audio/EE.wav" preload="auto"></audio>
+<!-- preload="none" (was "auto") on all four below, added 2026-08-19 in
+     response to a real "the live site feels laggy" report: these four
+     files totaled ~8.4MB being fetched eagerly on every console.html load
+     — TM-Intro.mp3 alone is 7.3MB — regardless of whether a given visit
+     ever clears a node, finds a deco secret, or reaches the ending.
+     Playback was already correctly gated behind real trigger events
+     (clearNode(), markDecoFound(), playShutdown()), not page load; only
+     the prefetch timing needed to change. .play() still fetches on
+     demand — same tradeoff as index.html's own gate-audio/access-audio,
+     see that comment for the full reasoning. -->
+<audio id="theme-audio" src="audio/TM-Intro.mp3" loop preload="none"></audio>
+<audio id="cleared-audio" src="audio/Cleared.mp3" preload="none"></audio>
+<audio id="deco-audio" src="audio/EE.wav" preload="none"></audio>
 <!-- loop, not one-shot: its length has no fixed relationship to the
      typewriter's — playShutdown() stops it explicitly once typing finishes. -->
-<audio id="ending-typing-audio" src="audio/ending-typing.mp3" loop preload="auto"></audio>
+<audio id="ending-typing-audio" src="audio/ending-typing.mp3" loop preload="none"></audio>
 
 <!-- Turnstile, added 2026-08-17 — the one deliberate exception to this
      project's otherwise fully self-contained asset story (fonts embedded
