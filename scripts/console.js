@@ -2941,6 +2941,28 @@
     // cleared had ambient locked off by the boot-time restore, well before
     // this first click — starting it here would undo that.
     if (!userToggled && !ambientLocked) { audioOn = true; audioEl.play().catch(() => {}); }
+    // Fire-and-forget session-token prefetch, added 2026-08-19 in response
+    // to a real latency report. Before this, getSessionToken() only ever
+    // ran lazily from inside apiFetch() — meaning a player's FIRST gated
+    // action of the session (first glyph click, first cipher-bearing node)
+    // paid the entire Turnstile round trip (render -> solve ->
+    // POST /verify-turnstile -> Cloudflare's own siteverify call -> mint
+    // token) serialized in front of the request they actually wanted, with
+    // nothing in the DOM to explain the wait. initConsole already fires on
+    // the first click/keypress — this project's own established "a real
+    // player showed up" signal (it's what gates the audio autoplay above)
+    // — so starting the handshake here overlaps it with the time the
+    // player spends reading the boot sequence / picking a node, instead of
+    // blocking their first real interaction. Not awaited: nothing here
+    // needs the result, apiFetch()'s own getSessionToken() call reuses
+    // whatever this produces (cachedSessionToken() checks sessionStorage
+    // first, acquireSessionToken() caches its in-flight promise) — a
+    // slower network just means the prefetch hasn't finished yet and the
+    // first real request falls back to waiting on it, exactly as before
+    // this existed. Deliberately tied to first-interaction rather than
+    // page load, so a visitor who never engages at all doesn't spend a
+    // Turnstile verification for nothing.
+    getSessionToken();
   }
   document.addEventListener("click", initConsole, { once: true });
   document.addEventListener("keydown", initConsole, { once: true });
