@@ -800,4 +800,24 @@
      typewriter's — playShutdown() stops it explicitly once typing finishes. -->
 <audio id="ending-typing-audio" src="audio/ending-typing.mp3" loop preload="auto"></audio>
 
+<!-- Turnstile, added 2026-08-17 — the one deliberate exception to this
+     project's otherwise fully self-contained asset story (fonts embedded
+     as base64 in theme.css specifically to avoid any external request; see
+     that file's own note). There's no way around it here: the whole point
+     of Turnstile is proving a real browser executed Cloudflare's own
+     challenge script, so it can't be vendored/self-hosted without
+     defeating its own purpose.
+     Deliberately NOT async/defer — tried that first, and Turnstile's own
+     SDK throws explicitly: "Remove async/defer from the Turnstile api.js
+     script tag before using turnstile.ready()" (caught by actually running
+     this in a real browser, not by reading the docs and assuming). Placed
+     at the end of body, right before console.js, same position a
+     deferred script would occupy anyway — most of defer's benefit already
+     comes from being here rather than in <head>, so the one script tag
+     that has to load synchronously costs little. console.js's own
+     acquireSessionToken() (see CHECK_ENDPOINT's own comment) still fails
+     soft with `typeof turnstile === "undefined"` for the remaining real
+     failure case this doesn't cover — the script failing to load at all
+     (network error, ad-blocker). -->
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
 <script src="scripts/console.js"></script>

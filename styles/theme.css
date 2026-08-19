@@ -28,7 +28,7 @@
   --panel: #131416;
   --panel-edge: #1e2023;
   --steel: #9198a1;
-  --steel-dim: #4a4f56;
+  --steel-dim: #7E828F;
   --signal: #ff3131;
   --signal-dim: #5c1512;
   --signal-glow: rgba(255, 49, 49, 0.35);
@@ -55,5 +55,35 @@ html, body {
   color: var(--steel);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Found 2026-08-17, real symptom this time (not just traced through
+     the CSS — reported directly): switching to a glyph node on
+     console.html made a right-side scrollbar appear (its .briefing gets
+     tall enough to push the whole page past viewport height at narrower
+     widths — see console.css's own `main`/`.briefing` comments), and the
+     skull artwork visibly resized the moment it did. Root cause is a
+     well-known, well-documented browser behavior, not a bug in this
+     file's own math: `vw` is defined as 1% of the *viewport* width,
+     which most browsers compute *including* whatever space a scrollbar
+     currently occupies — while everything else on the page (this
+     element's own content box, `main`'s grid, `.map-wrap`, ...) sizes
+     off the *actual rendered* content area, which genuinely shrinks by
+     the scrollbar's width the moment one appears. `.map`'s own
+     `max-width: min(97.5vw, 700px)` (console.css) doesn't shrink to
+     match, so the instant a scrollbar shows up, that vw-based cap stops
+     agreeing with everything vw-agnostic around it — the skull "grows"
+     relative to its surroundings, or vice versa when the scrollbar goes
+     away again. `scrollbar-gutter: stable` is the standard fix for
+     exactly this class of bug: it reserves the scrollbar's gutter width
+     *permanently*, whether or not a given page's content actually needs
+     to scroll right now, so the real content area's width stops
+     depending on that at all — vw-based and non-vw-based sizing agree
+     again regardless of scrollbar state. Set here (shared html/body base)
+     rather than only in console.css, since it's a page-load-time layout
+     constant, not something scoped to one page's content, and index.html
+     benefits from the same stability for the same underlying reason.
+     Still not visually confirmed — no browser in this sandbox — this is
+     the documented, standard fix for the reported symptom, not a guess,
+     but worth a real look on a narrow viewport before calling it closed. */
+  scrollbar-gutter: stable;
 }
 a { color: var(--signal); }

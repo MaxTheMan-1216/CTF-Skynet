@@ -36,6 +36,7 @@
 // difference between that and a real comment; these tools do.
 
 import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, rmSync } from "node:fs";
+import { basename } from "node:path";
 import { minify as minifyJs } from "terser";
 import CleanCSS from "clean-css";
 
@@ -46,12 +47,40 @@ const JS_FILES = ["scripts/gate.js", "scripts/console.js"];
 const CSS_FILES = ["styles/gate.css", "styles/console.css", "styles/theme.css"];
 const COPY_DIRS = ["audio"]; // no comments in binary audio files, so a plain recursive copy is enough
 
+// Added 2026-08-17, same day and same reasoning as GLYPH_LETTERS/
+// DECO_NODES[].fragment before it: this file was a puzzle *payload*
+// (NODE_02's cipher, see its own comment in scripts/console.js) sitting
+// at a plain, guessable, permanently-public static path — anyone could
+// curl it directly, view its spectrogram, and solve NODE_02 without ever
+// touching the game or "unlocking" it in the narrative sense. Moved
+// server-side into src/index.js's NODE_AUDIO map (base64, same pattern as
+// GLYPH_CIPHERTEXTS/DECO_FRAGMENTS) and served from a new rate-limited
+// /node-audio endpoint instead — see that file's own comment for the
+// honest limit on what this does and doesn't close (still no real
+// per-player "have you actually unlocked n2" check, same as every other
+// reveal endpoint here; this only removes it from being a static,
+// zero-interaction, cacheable-forever file). NODE_AUDIO's base64 is a
+// one-time generated, hand-committed constant — same as
+// GLYPH_CIPHERTEXTS/DECO_FRAGMENTS, not something this build step
+// regenerates on every run. The file still stays in audio/ (excluded here
+// by filtering the recursive copy, not deleted from the repo) purely as
+// the master copy to re-derive that base64 from if NODE_02's audio ever
+// changes — same reasoning as keeping any other pre-hash/pre-cipher
+// source value around.
+const PRIVATE_AUDIO_FILES = ["Node02_Spectrogram.wav"];
+
 // Matched by a literal substring of each comment's own text, not a
 // position/index into the file — keeps intent obvious at the call site
 // and survives the comment moving around later. Add new entries here if
 // more intentional in-fiction comments are ever added anywhere.
 const KEEP_HTML_COMMENTS = [
-  'legacy override phrase "no fate"',
+  // 'legacy override phrase "no fate"' entry removed 2026-08-17 — that
+  // comment (index.html) is gone entirely now, not just re-hidden; the
+  // hidden-glyph mechanism replaced it as the real discovery path (see
+  // that element's own comment in index.html). Left this note rather
+  // than silently deleting the line with no trace, so a future find of
+  // "why isn't this marker matching anything" doesn't need to dig through
+  // git history to learn it was intentional.
   "backup auth string, rotated per security policy",
   "qa override still wired in from the last pentest round",
   "backup transmission — real flag mirror",
@@ -82,11 +111,29 @@ async function buildJs(srcPath, outPath) {
 
 function buildCss(srcPath, outPath) {
   const src = readFileSync(srcPath, "utf8");
-  // level: 0 — strip comments/whitespace only, no rule merging or other
-  // restructuring. Same "narrow scope, minimize what could go wrong"
-  // reasoning as compress:false above, doubly so for theme.css's base64
-  // font data.
-  const result = new CleanCSS({ level: 0 }).minify(src);
+  // Real bug, found 2026-08-17+ (later session) — `level: 0` does NOT
+  // strip comments at all, contrary to what this comment used to claim.
+  // Checked directly against clean-css itself, not assumed: `level: 0`
+  // leaves every comment byte-for-byte untouched; every maintainer
+  // comment in this repo's CSS (including ones with real internal
+  // reasoning, not just the intentional red-herring ones) was shipping to
+  // the live site verbatim. This became load-bearing, not just cosmetic,
+  // once console.html/gate.css started carrying content that genuinely
+  // needs to not leak (see the gate page's own hidden-glyph comment for
+  // the concrete example that surfaced this).
+  //
+  // Fix: `level: 1` with `specialComments: 0` — level 1 does pull in real
+  // optimizations beyond comment stripping (shorter color hex forms,
+  // redundant-semicolon removal, adjacent-selector merging, zero-unit
+  // stripping), a wider blast radius than the narrow "whitespace/comments
+  // only" scope this function originally wanted, doubly so given
+  // theme.css's ~66KB of base64 font data sitting in `url(data:...)`
+  // values. Verified rather than assumed before trusting this: ran it
+  // against the real theme.css and diffed every `data:font/woff2;base64,`
+  // payload before vs after byte-for-byte identical (4 for 4) — clean-css
+  // treats url() contents as an opaque string, never parses/rewrites it —
+  // and confirmed zero `/*` markers remain in the output.
+  const result = new CleanCSS({ level: 1, specialComments: 0 }).minify(src);
   if (result.errors.length) throw new Error(result.errors.join("\n"));
   writeFileSync(outPath, result.styles);
 }
@@ -102,6 +149,11 @@ mkdirSync(`${DIST}/styles`, { recursive: true });
 for (const f of HTML_FILES) buildHtml(f, `${DIST}/${f}`);
 for (const f of JS_FILES) await buildJs(f, `${DIST}/${f}`);
 for (const f of CSS_FILES) buildCss(f, `${DIST}/${f}`);
-for (const d of COPY_DIRS) cpSync(d, `${DIST}/${d}`, { recursive: true });
+for (const d of COPY_DIRS) {
+  cpSync(d, `${DIST}/${d}`, {
+    recursive: true,
+    filter: (src) => !PRIVATE_AUDIO_FILES.includes(basename(src)),
+  });
+}
 
 console.log("Build complete ->", DIST);

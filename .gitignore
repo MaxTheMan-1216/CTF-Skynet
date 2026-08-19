@@ -2,3 +2,5 @@ node_modules/
 .wrangler/
 .dev.vars
 dist/
+build/node02_spectrogram_verification.png
+build/node02_audio.b64

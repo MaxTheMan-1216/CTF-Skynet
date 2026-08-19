@@ -1,5 +1,47 @@
   body {
     min-height: 100vh;
+    /* Found 2026-08-17, and the actual explanation for the whole
+       skull-resize saga documented on main/.map-wrap/.briefing below —
+       every earlier fix in that saga was real and necessary but none of
+       them were sufficient, and this is why: min-height alone makes
+       body's own main-axis size *indefinite* as a flex container (bounded
+       below, free to grow, not fixed). main is body's flex item
+       (flex:1, i.e. flex-basis:0%) — and per the flex sizing algorithm,
+       when the container's own size is indefinite, distributing
+       flex-grow into "remaining space" isn't fully pinned down by spec;
+       engines can and do differ on whether they still treat min-height as
+       a usable basis for that distribution or fall back to sizing the
+       item off its own content instead. Confirmed directly, not assumed:
+       tested this exact page against real Chromium AND real Firefox
+       (headless, vendored libnspr4/libnss3/libasound2 + a downloaded
+       Firefox build, both launched via Playwright) — Chromium already
+       pinned main to the viewport correctly with just min-height, which
+       is exactly why every previous fix in this saga tested clean in this
+       sandbox's Chromium-only testing and then still failed for the user.
+       Firefox does not: with only min-height here, main's resolved height
+       tracked its own CONTENT size instead (measured 669px for a plain
+       node vs 1137px for a glyph-heavy one, at an identical 900x560
+       viewport, with body/html growing right along with it) — the same
+       skull-grows-plus-scrollbar symptom reported, root-caused for real
+       this time by finding the one element in the whole chain whose
+       height was still ambiguous instead of pinned. `height` (a definite
+       size) removes the ambiguity outright: no engine has a content-based
+       fallback to reach for once the container's own main size is no
+       longer indefinite. min-height stays alongside it, redundant now for
+       sizing but still correct as a floor. 100dvh layers on top as a
+       progressive enhancement for browsers that support it (same modern
+       baseline this file already assumes for cqh/container queries) —
+       100vh doesn't track a mobile browser's URL-bar-driven viewport
+       changes, 100dvh does; the plain 100vh above still applies as the
+       fallback wherever dvh itself isn't supported. Re-verified the
+       narrow/mobile breakpoint separately (.list-view, <640px) still
+       scrolls the page normally past one viewport's worth of content
+       after this change — height doesn't clip overflowing content the
+       way overflow:hidden would, so nothing here caps the mobile layout,
+       only removes main's sizing ambiguity on the desktop pinned-viewport
+       layout above 760px. */
+    height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     animation: boot 0.6s ease-out;
@@ -186,13 +228,39 @@
     flex: 1;
     display: grid;
     grid-template-columns: 1fr min(340px, 32vw);
-    /* min-height:0 pins main to exactly fill the remaining viewport height
-       rather than growing to fit its content (the flexbox default). .map
-       itself no longer needs this for its own sake — its size is now
-       provably bounded to fit inside .map-wrap regardless (see .map's own
-       max-width comment below) — but this still keeps main, and so the
-       whole page, from growing past the viewport just because .briefing's
-       content happens to be tall on a given node. */
+    /* Found 2026-08-17, later than the min-height:0/overflow-y:auto fix on
+       .briefing below (which is real and necessary, but wasn't sufficient
+       on its own — confirmed still reproducing in a real browser with that
+       fix verifiably loaded, computed styles checked directly in devtools,
+       not assumed): this grid had no `grid-template-rows` at all, so its
+       one implicit row used the default `auto` track sizing. Whether an
+       `auto` row actually stretches to consume a grid container's full
+       available height — rather than shrinking to whatever its items'
+       reduced (contained/min-height:0) content contributions add up to —
+       depends on `align-content`'s default "stretch for auto tracks with
+       extra space" behavior, which has to correctly account for BOTH
+       .map-wrap (a `contain:size` item, meant to contribute ~nothing to
+       auto-sizing) and .briefing (`min-height:0`, meant to contribute only
+       its reduced minimum) agreeing on that at once. That's a genuinely
+       obscure corner of the grid spec for a browser to get exactly right,
+       not a foundational, heavily-tested one — unlike `fr`-unit
+       distribution, which every conformant engine handles identically
+       because it never needs to inspect an item's content at all, only the
+       container's own resolved size. `grid-template-rows: minmax(0, 1fr)`
+       switches to that: the row is now explicitly "all remaining space,
+       no content-based minimum," full stop, regardless of what either
+       item would otherwise contribute. Paired with min-height:0 below
+       (moved from "a nice-to-have belt-and-suspenders" to "still needed,
+       .briefing's overflow only ever hands off to its own scrollbar once
+       its box is actually bounded smaller than its content in the first
+       place") and .map-wrap's own min-height:0 (added alongside this, same
+       reasoning — a `contain:size` item shouldn't need it in theory, but
+       "shouldn't need it in theory" is exactly the category of assumption
+       that just failed once already here). min-height:0 here still pins
+       main to exactly fill the remaining viewport height rather than
+       growing to fit its content (the flexbox default) — that part of the
+       original reasoning was correct, it just wasn't the whole mechanism. */
+    grid-template-rows: minmax(0, 1fr);
     min-height: 0;
   }
   @media (max-width: 760px) {
@@ -202,7 +270,13 @@
        to buy anything. Same specificity as the base rule, so this has to
        come after it in source order to win; the .map override below
        follows suit. */
-    main { grid-template-columns: 1fr; flex: none; min-height: auto; }
+    /* grid-template-rows reset alongside the properties above, same reason:
+       an explicit minmax(0,1fr) row still means "exactly main's own
+       height, no more" once main itself goes back to flex:none/min-height:
+       auto here — main's height becomes content-driven again below this
+       width, and the row needs to be free to match that, not hold main to
+       whatever the *desktop* pinned height would have been. */
+    main { grid-template-columns: 1fr; grid-template-rows: auto; flex: none; min-height: auto; }
   }
 
   /* ---------- initialize gate: nodes/list stay hidden and audio stays
@@ -276,10 +350,22 @@
        below to size itself against this box's real height — inline-size
        containers only ever expose cqw/cqi. .map-wrap qualifies for size
        containment cleanly: its own size already comes purely from being a
-       grid item stretched by main (see main's own rule above), never from
-       its content, in both axes — nothing here depends on .map's size to
-       find its own, so there's no circularity for containment to trip over. */
+       grid item stretched by main (see main's own rule above, now an
+       explicit minmax(0,1fr) row rather than relying on auto-track
+       stretch), never from its content, in both axes — nothing here
+       depends on .map's size to find its own, so there's no circularity
+       for containment to trip over. */
     container-type: size;
+    /* Added alongside main's grid-template-rows fix, same defense-in-depth
+       reasoning: a `contain:size` item's content-based intrinsic size
+       *should* already be neutralized for sizing purposes, making this
+       redundant with min-height:auto's own default in theory — but
+       "should be redundant in theory" already turned out wrong once for
+       .briefing (see that rule's own comment) before min-height:0 was
+       actually added there, and main's row is no longer trusting either
+       item's auto-contribution at all now regardless. Costs nothing to
+       state explicitly rather than lean on an assumption a second time. */
+    min-height: 0;
   }
 
   /* ---------- endgame, part 1: right panel exits, skull re-centers ---------- */
@@ -416,6 +502,38 @@
        definite, content-independent height for size containment to
        establish in the first place.) */
     .map { max-width: min(97.5vw, 700px); } /* same 25% bump as the desktop cap above */
+
+    /* Found 2026-08-17: the comment above already diagnosed half of this
+       ("cqh would be moot here") but stopped short of actually turning
+       size containment off — .map-wrap's own `container-type: size`
+       (declared unconditionally, see that rule's own comment) was still
+       in effect at this breakpoint with nothing left to establish a
+       height from. Size containment makes an element's box ignore its
+       own content for sizing purposes; once main stops pinning .map-wrap
+       to a definite viewport-derived height (min-height:0 -> auto, just
+       above), nothing else here supplies one, so .map-wrap's box was
+       left to collapse toward zero height in the stacked single-column
+       layout while .map itself (a flex item with its own definite
+       width/aspect-ratio-derived height, unaffected by its container's
+       collapse) kept rendering at full size regardless — the skull
+       visually overflowing a box too short to actually contain it. That
+       reads as "the skull's size/position shifts," and specifically
+       tracks with .briefing's own content height, because .briefing only
+       stops scrolling internally (overflow-y:auto, see that rule) and
+       starts affecting the page's real layout once main is no longer
+       pinned — exactly this same breakpoint. A glyph node's briefing (26-
+       symbol reference key + message glyphs + submit form) is dramatically
+       taller than a plain-text node's, so switching between them here is
+       exactly when the collapse would be most visible. Fixed by turning
+       size containment back off at this breakpoint — cqh already isn't
+       used here (see .map's own rule just above), so there's nothing left
+       that actually needs it; .map-wrap's height can go back to resolving
+       normally (from .map's own content-independent, vw-based size)
+       instead of fighting containment for no purpose. Not verified
+       visually — no browser available in this sandbox to confirm against
+       a real render, only traced through the CSS; worth a look on an
+       actual narrow-viewport device before considering this closed. */
+    .map-wrap { container-type: normal; }
 
     /* .map-wrap already spans the full width in this single-column layout,
        so the desktop-only re-center shift has nothing to center against. */
@@ -869,6 +987,42 @@
     flex-direction: column;
     gap: 16px;
     overflow-y: auto;
+    /* Found 2026-08-17 — the actual root cause behind the reported
+       skull-resize-plus-scrollbar bug, after two earlier attempts
+       (.map-wrap's container-type, then scrollbar-gutter) both missed it.
+       #briefing is a grid item of `main` (display:grid, see that rule's
+       own min-height:0). Grid/flex ITEMS default to `min-height: auto`,
+       which floors an item's height at its *content's own intrinsic
+       minimum size* — a classic, easy-to-miss trap: the container's own
+       min-height:0 (main's rule) does not propagate down to fix this on
+       its items, so #briefing was still refusing to shrink below
+       whatever height its content needed, overflow-y:auto or not (auto
+       only ever engages once a box actually *has* a bounded size smaller
+       than its content — with the item's own min-height flooring it at
+       the content's size first, that bounded state never occurs, so
+       nothing ever scrolls; the box just grows instead). Since #briefing
+       shares main's single implicit grid row with .map-wrap, and grid
+       items stretch to their row's height by default, that oversized
+       #briefing forced the *whole row* — including .map-wrap, which
+       .map's cqh-based sizing reads directly — to grow past viewport
+       height right along with it. Same cause, both symptoms at once:
+       the page-level scrollbar (main's height escapes the pinned
+       viewport bound) and the skull visibly growing (.map-wrap's height,
+       which .map sizes itself against, grows too). Explains "lower
+       resolutions" specifically, not just generally: the briefing
+       column's width is min(340px,32vw), so a glyph node's 26-symbol
+       reference key wraps into more rows the narrower that gets, pushing
+       #briefing's intrinsic minimum height higher exactly as resolution
+       drops — matching what was reported. min-height:0 here is what
+       actually lets #briefing shrink to the row's intended height and
+       hand any real overflow to its own scrollbar instead of the row (and
+       .map-wrap along with it) absorbing the difference. Still not
+       visually confirmed for the same reason as the last two attempts —
+       no browser in this sandbox — but this is the mechanism that
+       actually explains both reported symptoms together, where the
+       previous two fixes each only explained one plausible-sounding
+       partial story. */
+    min-height: 0;
   }
   /* wrap rather than overflow — the narrow briefing column (min(340px,32vw))
      plus a long status label ("Active — Awaiting Input") doesn't fit on one
@@ -1024,6 +1178,240 @@
   .clock-tick { fill: var(--steel-dim); }
   .clock-hand-hour { stroke: var(--phosphor); stroke-width: 2.2; stroke-linecap: round; }
   .clock-hand-minute { stroke: var(--signal); stroke-width: 1.4; stroke-linecap: round; }
+
+  /* CORE-glyph cipher (buildGlyphCipher()/buildGlyphIcon() in console.js).
+     .glyph-key is the always-shown 26-symbol reference; .glyph-message is
+     a node's own encoded payload — both are rows of the same .glyph
+     button, so one ruleset covers both. */
+  .glyph-key-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--steel-dim);
+    text-transform: uppercase;
+    margin: 10px 0 6px;
+  }
+  .glyph-key-row:first-of-type, .glyph-cipher > .glyph-key-label:first-child { margin-top: 0; }
+  .glyph-key-row, .glyph-message {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  /* Unstyled-button reset, then styled as a small bordered tile — same
+     bordered-tile language .audio-btn already uses elsewhere in this
+     file, so a glyph reads as "a control," not just decorative art. Also
+     applied to the non-clickable <span> variant (see buildGlyphIcon's own
+     comment) via `all: unset` so both tag types render identically apart
+     from the .static overrides just below. */
+  .glyph {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 34px;
+    height: 34px;
+    padding: 3px;
+    background: var(--void);
+    border: 1px solid var(--panel-edge);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  /* A node's own encoded message (buildGlyphIcon's clickable:false path,
+     added 2026-08-17) — display-only, so no pointer cursor and no
+     hover/focus affordance implying it can be clicked; :not(.static) on
+     the rule below is what withholds that from these specifically. */
+  .glyph.static { cursor: default; }
+  .glyph:not(.static):hover, .glyph:not(.static):focus-visible { border-color: var(--signal); }
+  .glyph:focus-visible { outline: 1px solid var(--signal); outline-offset: 2px; }
+  /* Revealed glyphs get the "solved" green rather than staying signal-red
+     — same color meaning --cleared already carries everywhere else in
+     this file (a done/known state), not a new one invented just for this.
+     Applies to .glyph-message's own glyphs — the actual encoded content —
+     since that's the thing green's "solved" meaning genuinely fits. */
+  .glyph.revealed { border-color: var(--cleared); }
+  /* .glyph-key's own tiles override to --flame instead (added 2026-08-17,
+     at the user's explicit request): before this, revealing anything
+     turned both the reference key *and* the message glyphs the identical
+     green, so nothing distinguished "a letter you've looked up" from "part
+     of the actual secret you've decoded" — green-on-green. --flame already
+     carries an "active/current" meaning elsewhere in this file (the
+     current node's own dot/glow), which fits a reference lookup better
+     than "solved" does, and reads as a deliberate green+amber CRT duotone
+     rather than a color pulled in from outside the theme. Kept distinct
+     on purpose from --signal too, which this same element already uses
+     for hover/focus/error — three unambiguous meanings on one element
+     type, not two colors doing double duty. */
+  .glyph-key .glyph.revealed { border-color: var(--flame); }
+  /* flashGlyphError() (console.js) — a failed/throttled reveal request.
+     Brief and self-clearing (the class comes off again on its own via a
+     timeout), so this reads as "try again," not a permanent broken state.
+     Reuses --signal, same "something needs attention" meaning the plain
+     hover/focus border already carries on this element. */
+  .glyph.glyph-error { border-color: var(--signal); }
+  .glyph-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--phosphor);
+  }
+  .glyph.revealed .glyph-icon { color: var(--cleared); }
+  .glyph-key .glyph.revealed .glyph-icon { color: var(--flame); } /* see .glyph-key .glyph.revealed's own comment above */
+  /* The raw shapes buildGlyphIcon()/glyphMarkup() emit (circle/rect/
+     polygon/line) carry no styling of their own — direct children of
+     .glyph-icon covers every shape type with one rule rather than needing
+     a class per element. */
+  .glyph-icon > * {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* Reserved height so revealing a letter doesn't reflow/resize the
+     button (and everything after it) by however tall that text is —
+     .glyph is a fixed-size tile either way, this just controls whether
+     the reserved space is visibly filled. */
+  .glyph-letter {
+    height: 9px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    line-height: 1;
+    color: var(--cleared);
+    visibility: hidden;
+  }
+  .glyph.revealed .glyph-letter { visibility: visible; }
+  .glyph-key .glyph-letter { color: var(--flame); } /* see .glyph-key .glyph.revealed's own comment above — no .revealed needed here, visibility already gates when this shows at all */
+  /* A word-break in a glyph message reads the same way .clock-word's own
+     group-gap does — space, not a visible mark. */
+  .glyph-gap { width: 14px; flex: none; }
+
+  /* NODE_06's coordinate digits (buildGlyphDigit()/buildGlyphGrid()) —
+     same 5 base shapes glyphMarkup() draws for letters. Restyled
+     2026-08-19, at the user's explicit request, to match CORE's own
+     glyph-hex treatment (.glyph-hex-icon above) — fill + stroke together
+     and the same --ember/--ember-glow color, instead of the plain
+     phosphor fill this used before. Only the CSS changed here, not the
+     underlying markup: buildGlyphDigit() still calls glyphShapeMarkup()
+     directly (no ticks), so these 5 shapes read as "the same visual
+     family as CORE's dialect" without actually gaining tick marks —
+     there's no tick data in the SVG content for this rule to reveal even
+     though it draws a stroke now, since a 5x5 Polybius grid never needed
+     more than 5 distinct shapes to begin with. */
+  .glyph-digit-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--ember);
+    filter: drop-shadow(0 0 3px var(--ember-glow));
+  }
+  .glyph-digit-icon > * {
+    fill: currentColor;
+    stroke: currentColor;
+    stroke-width: 1.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .glyph-digit-legend {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  .glyph-digit-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .glyph-digit-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--steel-dim);
+  }
+  .glyph-grid-message {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+  /* Same "group gap reads as the word break" language .clock-word already
+     uses — a coordinate-grid message is the same shape of data (letters
+     grouped into words) as the clock cipher, just decoded differently. */
+  .glyph-grid-word {
+    display: flex;
+    gap: 8px;
+  }
+  .glyph-grid-pair {
+    display: flex;
+    gap: 2px;
+    padding: 3px 5px;
+    background: var(--void);
+    border: 1px solid var(--panel-edge);
+    border-radius: 2px;
+  }
+
+  /* CORE's own cipher dialect (buildGlyphHex()/buildGlyphHexCipher()),
+     added 2026-08-19 at the user's explicit request as CORE's own "flare"
+     — a genuinely different visual system from both of this project's
+     other two glyph treatments, not a reuse of either: .glyph-icon above
+     is OUTLINE + ticks (the 26-letter alphabet), .glyph-digit-icon is
+     FILL + no ticks (NODE_06). This is FILL + ticks together — the one
+     combination neither existing system uses — deliberately reading as
+     "everything else, synthesized," fitting CORE's role as the node that
+     absorbed every other signal. Same underlying shape/tick generator
+     (glyphMarkup()) as the 26-letter alphabet, index 0-15 instead of
+     0-25 — 16 symbols for one hex nibble each, not a new shape set to
+     design or maintain. --ember/--ember-glow specifically (not --signal
+     or --flame) to match CORE's own already-established map identity —
+     see #skull-art's ember drop-shadow and .node.glow's --pulse-glow. */
+  .glyph-hex-icon {
+    width: 22px;
+    height: 22px;
+    color: var(--ember);
+    filter: drop-shadow(0 0 3px var(--ember-glow));
+  }
+  .glyph-hex-icon > * {
+    fill: currentColor;
+    stroke: currentColor;
+    stroke-width: 1.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .glyph-hex-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  .glyph-hex-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .glyph-hex-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--steel-dim);
+  }
+  .glyph-hex-message {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  /* One box per source byte (two glyphs = high nibble, low nibble) — same
+     "group the pair visually" language .glyph-grid-pair already uses for
+     Polybius coordinates, so a byte reads as one unit instead of two
+     unrelated symbols sitting next to the next byte's first nibble. */
+  .glyph-hex-byte {
+    display: flex;
+    gap: 3px;
+    padding: 4px 6px;
+    background: var(--void);
+    border: 1px solid var(--panel-edge);
+    border-radius: 2px;
+  }
 
   .cipher-meta {
     margin-top: 8px;

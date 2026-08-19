@@ -3,6 +3,47 @@
 <link rel="stylesheet" href="styles/theme.css">
 <link rel="stylesheet" href="styles/gate.css">
 
+<!-- Hidden access-phrase QR code, added 2026-08-18, made the sole discovery
+     channel 2026-08-19 at the user's explicit request (removed a sibling
+     letterform-SVG hint that used to sit here too — see git history if
+     that mechanism is ever wanted again; the red herring comment near the
+     bottom of this file is a separate, untouched decoy, unrelated to this).
+     Camouflaged near-invisibly the same way the console's own glyph
+     ciphers hide their mapping — small size, achromatic delta over --void
+     (see gate.css) — positioned bottom-left. A player who reveals it
+     (brightness/contrast boost, live via devtools or on a screenshot)
+     scans the resulting QR instead of reading text directly.
+
+     Deliberately EMPTY here — a QR module grid has no "needs rendering to
+     mean anything" gap the way traced letterform paths would: the
+     dark/light pattern IS the fully-decoded payload the instant it's
+     read, no visual recognition required. Shipping that grid as static
+     markup in this file would hand the phrase to any QR-decoding script
+     pointed at the source, no color trick or rendering needed at all —
+     strictly worse than the plaintext ACCESS_PHRASE this project already
+     moved off of once (see src/index.js's GATE_ANSWER_HASH comment). So
+     the module grid lives only server-side; gate.js fetches it from
+     POST /gate-qr and builds the SVG at runtime, same "can't be extracted
+     for free by reading source" principle as every other revealed-not-
+     shipped asset in this project (glyph alphabet, node ciphers, deco
+     fragments, node audio) — though see that same file's own comment on
+     the real, narrower gap this still leaves: the raw module data itself
+     is only rate-limited, not session-gated, same tier as /check-gate.
+
+     gate.js's own comment covers a real, non-obvious bug worth knowing if
+     this is ever touched again: a QR decoder needs standard polarity
+     (dark modules = low reflectance), but this page's background is
+     already near the darkest a pixel can be, so the near-invisible signal
+     can only ever render BRIGHTER than background — meaning the light
+     modules and the quiet zone are what get the near-invisible fill here,
+     not the dark modules, which is inverted from what "draw the dark
+     pixels" would naturally suggest. Getting that backwards produces an
+     image that looks like a valid QR and fooled a lenient decoder (jsQR)
+     in testing, but failed every real-world scanner (verified against
+     zbar, the library many actually use) at any color delta up to +20 —
+     it wasn't a contrast problem at all. -->
+<div class="hidden-signal-qr" aria-hidden="true"></div>
+
 <header>
    <button type="button" class="hud-stat hud-audio" id="audio-toggle" aria-label="Toggle ambient audio">
       <div class="k">Audio</div>
@@ -25,8 +66,6 @@
       <div class="gate-row">
         <span class="gate-caret" aria-hidden="true">&gt;</span>
         <input id="gate-input" type="text" spellcheck="false" autocomplete="off" autofocus aria-describedby="gate-msg" />
-        <!-- cyberdyne internal QA — legacy override phrase "no fate" still lives in
-        this build, pending removal before external release -->
       </div>
       <p id="gate-msg" class="gate-msg" role="status" aria-live="polite">&nbsp;</p>
     </form>
