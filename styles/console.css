@@ -548,12 +548,44 @@
      is the muted bonus tier, cleared stays plain --cleared green. */
   /* Faint whole-skeleton "breathing" glow, separate from ball-glow below
      (the current node's own faster/brighter pulse) — the ambient base
-     everything else sits on top of. Starts at 4.5s so it doesn't fight the
-     draw-on reveal, which finishes around then. */
-  #skull-art { filter: drop-shadow(0 0 9px var(--ember-glow)); }
-  @media (prefers-reduced-motion: no-preference) {
-    main.play #skull-art { animation: skull-breathe 5.5s ease-in-out 4.5s infinite; }
+     everything else sits on top of.
+     2026-08-19, in response to a real "stutter right as the boot draw-on
+     is finishing" report: this filter used to apply unconditionally, from
+     the very first frame — meaning it sat on #skull-art (674 individual
+     paths, each running its own draw-on animation) for the entire ~4.5s
+     reveal, not just once skull-breathe's own animated version of it
+     kicks in. A `filter` on a parent forces the whole subtree to be
+     rasterized and recomposited together, which is exactly the kind of
+     cost that's worth NOT paying while hundreds of children are also
+     mid-animation. Split in two: reduced-motion gets the plain static
+     filter immediately (matching this file's usual "no delay, just show
+     the final state" reduced-motion convention — there's no draw-on
+     playing for these users to compete with in the first place), and the
+     animated case now delays applying any filter at all until the same
+     ~4.5s mark skull-breathe already anchors to, via skull-glow-in below.
+     Not proven to fix the reported stutter — headless testing couldn't
+     reproduce a measurable frame drop either before or after this change,
+     which may say more about headless/software rendering than about the
+     real thing — but this removes a genuine, well-documented performance
+     anti-pattern regardless, so it's worth keeping even if unverified.
+     main.core-cleared needs the same immediate, unconditional filter as
+     reduced-motion does, for a real separate reason: a returning player
+     whose save already has CORE cleared gets that class directly (see the
+     boot-restore check in console.js) WITHOUT .play ever being added —
+     "nothing here should animate on load" is deliberate for that state —
+     so the .play-gated rule below would never apply to them at all,
+     leaving the skull with no glow ever. Caught by checking the
+     boot-restore path before shipping this, not by trial and error. */
+  @media (prefers-reduced-motion: reduce) {
+    #skull-art { filter: drop-shadow(0 0 9px var(--ember-glow)); }
   }
+  main.core-cleared #skull-art { filter: drop-shadow(0 0 9px var(--ember-glow)); }
+  @media (prefers-reduced-motion: no-preference) {
+    main.play #skull-art {
+      animation: skull-glow-in 0.01s linear 4.5s forwards, skull-breathe 5.5s ease-in-out 4.5s infinite;
+    }
+  }
+  @keyframes skull-glow-in { to { filter: drop-shadow(0 0 9px var(--ember-glow)); } }
   @keyframes skull-breathe {
     0%, 100% { filter: drop-shadow(0 0 6px var(--ember-glow)); }
     50% { filter: drop-shadow(0 0 15px var(--ember-glow)); }
@@ -1226,6 +1258,29 @@
   .glyph.static { cursor: default; }
   .glyph:not(.static):hover, .glyph:not(.static):focus-visible { border-color: var(--signal); }
   .glyph:focus-visible { outline: 1px solid var(--signal); outline-offset: 2px; }
+  /* Added 2026-08-19 in response to a real "clicking a glyph doesn't
+     register straight away" report. Two separate fixes for two separate
+     gaps, not one:
+     (1) :active is genuinely instant — handled entirely by the browser's
+     own input pipeline the moment a pointer goes down, zero JS/network
+     involved, so this covers the press itself with no latency at all.
+     (2) .pending (set by console.js's own click handler, cleared in its
+     `finally`) covers the gap :active can't: the real network round trip
+     to REVEAL_ENDPOINT between click and response, during which nothing
+     used to change on screen at all. A soft pulse, not a spinner or color
+     change that might read as an error/success state prematurely — this
+     only needs to say "heard you," not report an outcome yet. */
+  .glyph:not(.static):active { transform: scale(0.92); }
+  @media (prefers-reduced-motion: no-preference) {
+    .glyph.pending { animation: glyph-pending 0.6s ease-in-out infinite; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .glyph.pending { opacity: 0.7; }
+  }
+  @keyframes glyph-pending {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
   /* Revealed glyphs get the "solved" green rather than staying signal-red
      — same color meaning --cleared already carries everywhere else in
      this file (a done/known state), not a new one invented just for this.

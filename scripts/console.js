@@ -2138,6 +2138,19 @@
     el.addEventListener("click", async () => {
       if (revealed.has(index) || revealing) return;
       revealing = true;
+      // Added 2026-08-19 in response to a real "clicking a glyph doesn't
+      // register straight away" report — accurate, not a misperception:
+      // this handler's very first await is a live network round trip
+      // (REVEAL_ENDPOINT, possibly preceded by Turnstile/session
+      // acquisition on the first gated call of a page load), and before
+      // this line nothing in the DOM changed at all between click and
+      // response — a real, if usually brief, gap with zero visual
+      // acknowledgment in it. `.pending` is purely cosmetic (a self-
+      // clearing pulse, see its own CSS comment) — doesn't affect
+      // `revealing`'s own guard logic — but removes the "did that even
+      // register" feeling by giving instant feedback the click was heard,
+      // independent of how long the actual request takes.
+      el.classList.add("pending");
       try {
         const res = await apiFetch(REVEAL_ENDPOINT, { index });
         if (res.status === 429) {
@@ -2170,6 +2183,7 @@
         flashGlyphError(el, "connection lost — try again");
       } finally {
         revealing = false;
+        el.classList.remove("pending");
       }
     });
 
