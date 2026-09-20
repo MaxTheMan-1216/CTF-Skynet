@@ -1,45 +1,10 @@
   body {
     min-height: 100vh;
-    /* Found 2026-08-17, and the actual explanation for the whole
-       skull-resize saga documented on main/.map-wrap/.briefing below —
-       every earlier fix in that saga was real and necessary but none of
-       them were sufficient, and this is why: min-height alone makes
-       body's own main-axis size *indefinite* as a flex container (bounded
-       below, free to grow, not fixed). main is body's flex item
-       (flex:1, i.e. flex-basis:0%) — and per the flex sizing algorithm,
-       when the container's own size is indefinite, distributing
-       flex-grow into "remaining space" isn't fully pinned down by spec;
-       engines can and do differ on whether they still treat min-height as
-       a usable basis for that distribution or fall back to sizing the
-       item off its own content instead. Confirmed directly, not assumed:
-       tested this exact page against real Chromium AND real Firefox
-       (headless, vendored libnspr4/libnss3/libasound2 + a downloaded
-       Firefox build, both launched via Playwright) — Chromium already
-       pinned main to the viewport correctly with just min-height, which
-       is exactly why every previous fix in this saga tested clean in this
-       sandbox's Chromium-only testing and then still failed for the user.
-       Firefox does not: with only min-height here, main's resolved height
-       tracked its own CONTENT size instead (measured 669px for a plain
-       node vs 1137px for a glyph-heavy one, at an identical 900x560
-       viewport, with body/html growing right along with it) — the same
-       skull-grows-plus-scrollbar symptom reported, root-caused for real
-       this time by finding the one element in the whole chain whose
-       height was still ambiguous instead of pinned. `height` (a definite
-       size) removes the ambiguity outright: no engine has a content-based
-       fallback to reach for once the container's own main size is no
-       longer indefinite. min-height stays alongside it, redundant now for
-       sizing but still correct as a floor. 100dvh layers on top as a
-       progressive enhancement for browsers that support it (same modern
-       baseline this file already assumes for cqh/container queries) —
-       100vh doesn't track a mobile browser's URL-bar-driven viewport
-       changes, 100dvh does; the plain 100vh above still applies as the
-       fallback wherever dvh itself isn't supported. Re-verified the
-       narrow/mobile breakpoint separately (.list-view, <640px) still
-       scrolls the page normally past one viewport's worth of content
-       after this change — height doesn't clip overflowing content the
-       way overflow:hidden would, so nothing here caps the mobile layout,
-       only removes main's sizing ambiguity on the desktop pinned-viewport
-       layout above 760px. */
+    /* Fixes a real Firefox-only bug: min-height alone left body's flex
+       main-axis size indefinite, so main (flex:1) sized off its own
+       content there instead of the viewport, causing the skull artwork to
+       resize. `height` (definite) removes the ambiguity; 100dvh layers on
+       top for mobile URL-bar viewport changes. */
     height: 100vh;
     height: 100dvh;
     display: flex;
@@ -122,21 +87,13 @@
   .hud-audio:hover .v, .hud-audio:focus-visible .v { color: var(--signal); }
   .hud-audio:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
 
-  /* DEV ONLY — see the "reset progress" comments in console.html/console.js;
-     remove this rule alongside those when the button comes out. --signal
-     (danger/accent red) at rest, not just on hover, since this one is
-     destructive rather than a toggle. */
+  /* DEV ONLY — remove alongside the reset-progress button in console.html/console.js. */
   .hud-reset { cursor: pointer; background: none; border: none; padding: 0; font: inherit; }
   .hud-reset .v { color: var(--signal); }
   .hud-reset:hover .v, .hud-reset:focus-visible .v { text-decoration: underline; }
   .hud-reset:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
 
-  /* Hidden by default via the [hidden] attribute in console.html — console.js
-     removes it the moment the first deco (DECO_NODES) is found, so this
-     never advertises the easter egg before a player has already stumbled
-     onto it. --steel (neutral) while still counting up; --cleared (green,
-     "done" per the theme's own convention) once all 4 are in and this
-     becomes clickable to open .fragments-panel below. */
+  /* Hidden via [hidden] until the first deco node is found, so this never advertises the easter egg early. --cleared once all 4 are in and clickable. */
   .hud-fragments { cursor: pointer; background: none; border: none; padding: 0; font: inherit; }
   .hud-fragments:hover .v, .hud-fragments:focus-visible .v { color: var(--phosphor); }
   .hud-fragments:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
@@ -148,35 +105,22 @@
     .hud-stats { gap: 14px; }
   }
 
-  /* Same panel treatment as .cipher-block (briefing puzzle payloads) so it
-     reads as part of the same visual language rather than inventing a new
-     one — but positioned as a dropdown off the header, not inline in the
-     page flow, since this is a bonus aside rather than another
-     .shutdown-panel-weight moment (see the comment on #fragments-panel in
-     console.html for why it's deliberately lighter than the ending
-     reveal). Hidden via [hidden] until console.js toggles it open. */
+  /* Same panel treatment as .cipher-block, but positioned as a header dropdown since this is a bonus aside, not another ending-reveal moment. */
   .fragments-panel {
     position: absolute;
     top: 72px;
     right: clamp(16px, 4vw, 40px);
     z-index: 5;
     max-width: min(420px, calc(100vw - 32px));
-    /* Extra top padding, not the uniform 14px the side/bottom keep — makes
-       room for .fragments-close (below) so it sits in its own space above
-       the text instead of overlapping whatever the first line happens to
-       be. */
+    /* Extra top padding makes room for .fragments-close so it doesn't overlap the first line of text. */
     padding: 32px 14px 14px;
     background: var(--panel);
     border: 1px solid var(--panel-edge);
     border-radius: 3px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
-  /* Always-reachable way to close the panel that lives inside it — see
-     buildFragmentsCloseButton's own comment in console.js for why this
-     exists alongside (not instead of) #fragments-toggle's own click-to-
-     close and the click-outside-to-close listener: on narrower layouts
-     the toggle itself could end up behind the open panel, so closing
-     can't depend on reaching it specifically. */
+  /* Always-reachable close button — on narrow layouts the toggle itself
+     can end up behind the open panel, so closing can't depend on it alone. */
   .fragments-close {
     position: absolute;
     top: 6px;
@@ -205,18 +149,11 @@
     color: var(--phosphor);
     white-space: pre-line;
   }
-  /* renderFragmentsPanel() appends more than one .fragments-message
-     (found-fragments list, lore, and — once solved — the reward) as
-     separate <p> siblings rather than one blob, so later ones need their
-     own top margin; the lone-message case (a locked/never-earned panel
-     never renders at all, see that function) doesn't exist to worry about. */
+  /* renderFragmentsPanel() appends multiple .fragments-message <p>s as separate siblings, so later ones need their own top margin. */
   .fragments-message + .fragments-message {
     margin-top: 10px;
   }
-  /* The actual payoff once solved — --cleared (green), matching the
-     theme's own "done" convention elsewhere (NODES status, Session
-     elapsed once complete, etc.), distinct from the plain phosphor lore
-     text above it. */
+  /* The payoff once solved — --cleared (green), matching this theme's "done" convention elsewhere. */
   .fragments-reward {
     color: var(--cleared);
     font-weight: 600;
@@ -228,54 +165,15 @@
     flex: 1;
     display: grid;
     grid-template-columns: 1fr min(340px, 32vw);
-    /* Found 2026-08-17, later than the min-height:0/overflow-y:auto fix on
-       .briefing below (which is real and necessary, but wasn't sufficient
-       on its own — confirmed still reproducing in a real browser with that
-       fix verifiably loaded, computed styles checked directly in devtools,
-       not assumed): this grid had no `grid-template-rows` at all, so its
-       one implicit row used the default `auto` track sizing. Whether an
-       `auto` row actually stretches to consume a grid container's full
-       available height — rather than shrinking to whatever its items'
-       reduced (contained/min-height:0) content contributions add up to —
-       depends on `align-content`'s default "stretch for auto tracks with
-       extra space" behavior, which has to correctly account for BOTH
-       .map-wrap (a `contain:size` item, meant to contribute ~nothing to
-       auto-sizing) and .briefing (`min-height:0`, meant to contribute only
-       its reduced minimum) agreeing on that at once. That's a genuinely
-       obscure corner of the grid spec for a browser to get exactly right,
-       not a foundational, heavily-tested one — unlike `fr`-unit
-       distribution, which every conformant engine handles identically
-       because it never needs to inspect an item's content at all, only the
-       container's own resolved size. `grid-template-rows: minmax(0, 1fr)`
-       switches to that: the row is now explicitly "all remaining space,
-       no content-based minimum," full stop, regardless of what either
-       item would otherwise contribute. Paired with min-height:0 below
-       (moved from "a nice-to-have belt-and-suspenders" to "still needed,
-       .briefing's overflow only ever hands off to its own scrollbar once
-       its box is actually bounded smaller than its content in the first
-       place") and .map-wrap's own min-height:0 (added alongside this, same
-       reasoning — a `contain:size` item shouldn't need it in theory, but
-       "shouldn't need it in theory" is exactly the category of assumption
-       that just failed once already here). min-height:0 here still pins
-       main to exactly fill the remaining viewport height rather than
-       growing to fit its content (the flexbox default) — that part of the
-       original reasoning was correct, it just wasn't the whole mechanism. */
+    /* No explicit grid-template-rows left the implicit row on `auto`
+       sizing, which some browsers shrink to content instead of stretching
+       to fill main. `minmax(0, 1fr)` forces "all remaining space, no
+       content-based minimum" instead, paired with min-height:0 below. */
     grid-template-rows: minmax(0, 1fr);
     min-height: 0;
   }
   @media (max-width: 760px) {
-    /* Below this width main stacks to one column and the page is left free
-       to grow/scroll normally instead of staying pinned to the viewport —
-       there's no side-by-side layout left at that point for pinning main
-       to buy anything. Same specificity as the base rule, so this has to
-       come after it in source order to win; the .map override below
-       follows suit. */
-    /* grid-template-rows reset alongside the properties above, same reason:
-       an explicit minmax(0,1fr) row still means "exactly main's own
-       height, no more" once main itself goes back to flex:none/min-height:
-       auto here — main's height becomes content-driven again below this
-       width, and the row needs to be free to match that, not hold main to
-       whatever the *desktop* pinned height would have been. */
+    /* Below this width main stacks to one column and the page scrolls normally instead of staying pinned to the viewport. */
     main { grid-template-columns: 1fr; grid-template-rows: auto; flex: none; min-height: auto; }
   }
 
@@ -308,9 +206,7 @@
   }
   @keyframes blink { 50% { opacity: 0.25; } }
 
-  /* nodes/list items pop in one after another via a per-item --i stagger
-     index (set in JS); wrapped in no-preference so reduced-motion users
-     never get opacity:0 in the first place, regardless of the .play class */
+  /* Nodes/list items pop in via a per-item --i stagger index (set in JS); wrapped in no-preference so reduced-motion users never get opacity:0. */
   @media (prefers-reduced-motion: no-preference) {
     #nodes > div { opacity: 0; }
     .list-item { opacity: 0; }
@@ -337,44 +233,18 @@
     position: relative;
     border-right: 1px solid var(--panel-edge);
     display: flex;
-    /* safe, not plain center: belt-and-suspenders against .map ever
-       overflowing this box (it shouldn't — see .map's own max-width
-       comment below, which bounds it to fit here by construction — but if
-       that math is ever wrong, plain center would shift .map above this
-       box's top edge with no way to scroll back up to see it, and safe
-       falls back to start-alignment instead). No overflow:auto/scrollbar
-       here anymore — with .map genuinely unable to exceed this box, there
-       was nothing left for one to ever catch. */
+    /* safe, not plain center — belt-and-suspenders against .map ever overflowing this box if the max-width math below is ever wrong. */
     align-items: safe center;
-    /* size, not inline-size: .map needs a cqh (container-query-height) unit
-       below to size itself against this box's real height — inline-size
-       containers only ever expose cqw/cqi. .map-wrap qualifies for size
-       containment cleanly: its own size already comes purely from being a
-       grid item stretched by main (see main's own rule above, now an
-       explicit minmax(0,1fr) row rather than relying on auto-track
-       stretch), never from its content, in both axes — nothing here
-       depends on .map's size to find its own, so there's no circularity
-       for containment to trip over. */
+    /* size, not inline-size — .map needs a cqh unit below, which only size containers expose. */
     container-type: size;
-    /* Added alongside main's grid-template-rows fix, same defense-in-depth
-       reasoning: a `contain:size` item's content-based intrinsic size
-       *should* already be neutralized for sizing purposes, making this
-       redundant with min-height:auto's own default in theory — but
-       "should be redundant in theory" already turned out wrong once for
-       .briefing (see that rule's own comment) before min-height:0 was
-       actually added there, and main's row is no longer trusting either
-       item's auto-contribution at all now regardless. Costs nothing to
-       state explicitly rather than lean on an assumption a second time. */
+    /* Defense-in-depth alongside main's grid-template-rows fix — costs nothing to state explicitly rather than rely on min-height:auto's default. */
     min-height: 0;
   }
 
   /* ---------- endgame, part 1: right panel exits, skull re-centers ---------- */
-  /* Added the instant CORE's flag is confirmed correct (clearNode in
-     console.js) — independent of the wave/shutdown chain further down,
-     which can take 8+ seconds. #briefing/.list-view are "which node am I
-     on", irrelevant once the run is won; hiding them is what makes the
-     skull's re-center below make sense (otherwise main's grid still
-     reserves space for a now-invisible right column). */
+  /* Fires the instant CORE's flag is confirmed correct, independent of the
+     wave/shutdown chain further down. Hiding #briefing/.list-view is what
+     makes the skull's re-center below make sense. */
   main.core-cleared #briefing,
   main.core-cleared .list-view {
     opacity: 0;
@@ -393,15 +263,9 @@
     }
   }
 
-  /* Moves .map-wrap into the space the right column used to reserve —
-     translateX by half of min(340px,32vw) re-centers it across main's full
-     width (no column-gap, so left+right width = main's width, and half of
-     what was freed is exactly the shift needed). Triggered by JS once
-     CORE's clear-draw and the panel fade above have both finished (see
-     NODE_CLEAR_MS/PANEL_FADE_MS in console.js). main.recentered alone is
-     the static target (boot restore lands directly, no transition);
-     main.recenter-play adds the transition for the live path — same
-     static/animated split as main.victory/.victory-play below. */
+  /* Moves .map-wrap into the space the right column used to reserve, by
+     translateX half of min(340px,32vw). main.recentered is the static
+     target (boot restore); main.recenter-play adds the transition. */
   main.recentered .map-wrap {
     transform: translateX(calc(min(340px, 32vw) / 2));
   }
@@ -414,18 +278,9 @@
   .map {
     position: relative;
     width: 100%;
-    /* Same shape as the original vh-based cap (a definite width, with
-       aspect-ratio below deriving height from it) — a max-height attempt
-       here instead was the wrong tool: .map is a flex item of .map-wrap
-       with align-items:safe center (not stretch) and flex-shrink:0, so its
-       width gets locked in by the flex algorithm before aspect-ratio or
-       max-height get any say over the cross axis — max-height clamped the
-       number but the box never actually shrank. cqh (container query
-       height, see .map-wrap's container-type above) is 1% of .map-wrap's
-       real height — already correctly "viewport minus the header bar" via
-       the grid stretch — so this fixes the same bug the vh version had
-       (no idea about the header) without fighting the flex cross axis:
-       it's a width computed up front, not a height clamped after the fact. */
+    /* A width cap derived from cqh (1% of .map-wrap's real height), not a
+       max-height — .map is a flex item whose width locks in before
+       max-height gets any say over the cross axis. */
     max-width: min(97.5cqh, 950px);
     /* must match #skull-art's viewBox aspect ratio (console.html) exactly,
        or preserveAspectRatio letterboxes the SVG inside this box */
@@ -434,11 +289,7 @@
     margin: auto;
   }
 
-  /* Faint glitch scoped to .map, not #skull-art — that element already owns
-     an animated filter for the breathing glow, and a second animation on
-     the same property would override rather than combine. Same jagged-steps
-     + drop-shadow-ghost language as the gate page's glitch, fire palette
-     instead of --signal, tuned down for "faint and subtle". */
+  /* Scoped to .map, not #skull-art, which already owns an animated filter for the breathing glow (a second one would override, not combine). */
   @media (prefers-reduced-motion: no-preference) {
     main.play .map { animation: skull-glitch 15s steps(1, jump-end) 8s infinite; }
     main.play .map::after { animation: skull-glitch-roll 15s steps(1, jump-end) 8s infinite; }
@@ -494,49 +345,17 @@
   }
 
   @media (max-width: 760px) {
-    /* Same specificity as the base rule, so this has to come after it in
-       source order to win. A height cap stops being the right thing to
-       size off once the layout stacks to one column and the page is left
-       free to grow — width cap instead. (cqh would be moot here anyway:
-       main drops flex:1 at this breakpoint, so .map-wrap no longer has a
-       definite, content-independent height for size containment to
-       establish in the first place.) */
-    .map { max-width: min(97.5vw, 700px); } /* same 25% bump as the desktop cap above */
+    /* A width cap replaces the desktop cqh height cap — main drops flex:1 at this breakpoint, so cqh no longer has a defined height to derive from. */
+    .map { max-width: min(97.5vw, 700px); }
 
-    /* Found 2026-08-17: the comment above already diagnosed half of this
-       ("cqh would be moot here") but stopped short of actually turning
-       size containment off — .map-wrap's own `container-type: size`
-       (declared unconditionally, see that rule's own comment) was still
-       in effect at this breakpoint with nothing left to establish a
-       height from. Size containment makes an element's box ignore its
-       own content for sizing purposes; once main stops pinning .map-wrap
-       to a definite viewport-derived height (min-height:0 -> auto, just
-       above), nothing else here supplies one, so .map-wrap's box was
-       left to collapse toward zero height in the stacked single-column
-       layout while .map itself (a flex item with its own definite
-       width/aspect-ratio-derived height, unaffected by its container's
-       collapse) kept rendering at full size regardless — the skull
-       visually overflowing a box too short to actually contain it. That
-       reads as "the skull's size/position shifts," and specifically
-       tracks with .briefing's own content height, because .briefing only
-       stops scrolling internally (overflow-y:auto, see that rule) and
-       starts affecting the page's real layout once main is no longer
-       pinned — exactly this same breakpoint. A glyph node's briefing (26-
-       symbol reference key + message glyphs + submit form) is dramatically
-       taller than a plain-text node's, so switching between them here is
-       exactly when the collapse would be most visible. Fixed by turning
-       size containment back off at this breakpoint — cqh already isn't
-       used here (see .map's own rule just above), so there's nothing left
-       that actually needs it; .map-wrap's height can go back to resolving
-       normally (from .map's own content-independent, vw-based size)
-       instead of fighting containment for no purpose. Not verified
-       visually — no browser available in this sandbox to confirm against
-       a real render, only traced through the CSS; worth a look on an
-       actual narrow-viewport device before considering this closed. */
+    /* Fixes a real bug: leaving container-type:size on here let .map-wrap
+       collapse toward zero height (nothing left to establish one from)
+       while .map kept rendering full size, making the skull appear to
+       overflow its box — most visible when .briefing's content height
+       varies (e.g. a glyph node vs. a plain-text one). */
     .map-wrap { container-type: normal; }
 
-    /* .map-wrap already spans the full width in this single-column layout,
-       so the desktop-only re-center shift has nothing to center against. */
+    /* .map-wrap already spans full width here, so there's nothing to re-center against. */
     main.recentered .map-wrap { transform: none; }
   }
 
@@ -546,36 +365,13 @@
      balls are the nodes, tinted by status. Fire palette (theme.css): --ember
      is the default/locked stroke, --flame marks the active node, --ember-dim
      is the muted bonus tier, cleared stays plain --cleared green. */
-  /* Faint whole-skeleton "breathing" glow, separate from ball-glow below
-     (the current node's own faster/brighter pulse) — the ambient base
-     everything else sits on top of.
-     2026-08-19, in response to a real "stutter right as the boot draw-on
-     is finishing" report: this filter used to apply unconditionally, from
-     the very first frame — meaning it sat on #skull-art (674 individual
-     paths, each running its own draw-on animation) for the entire ~4.5s
-     reveal, not just once skull-breathe's own animated version of it
-     kicks in. A `filter` on a parent forces the whole subtree to be
-     rasterized and recomposited together, which is exactly the kind of
-     cost that's worth NOT paying while hundreds of children are also
-     mid-animation. Split in two: reduced-motion gets the plain static
-     filter immediately (matching this file's usual "no delay, just show
-     the final state" reduced-motion convention — there's no draw-on
-     playing for these users to compete with in the first place), and the
-     animated case now delays applying any filter at all until the same
-     ~4.5s mark skull-breathe already anchors to, via skull-glow-in below.
-     Not proven to fix the reported stutter — headless testing couldn't
-     reproduce a measurable frame drop either before or after this change,
-     which may say more about headless/software rendering than about the
-     real thing — but this removes a genuine, well-documented performance
-     anti-pattern regardless, so it's worth keeping even if unverified.
-     main.core-cleared needs the same immediate, unconditional filter as
-     reduced-motion does, for a real separate reason: a returning player
-     whose save already has CORE cleared gets that class directly (see the
-     boot-restore check in console.js) WITHOUT .play ever being added —
-     "nothing here should animate on load" is deliberate for that state —
-     so the .play-gated rule below would never apply to them at all,
-     leaving the skull with no glow ever. Caught by checking the
-     boot-restore path before shipping this, not by trial and error. */
+  /* Faint whole-skeleton "breathing" glow, separate from ball-glow below.
+     Delays applying any filter until ~4.5s (via skull-glow-in) rather than
+     from frame one, since a filter forces the whole #skull-art subtree to
+     rasterize together while its 674 paths are mid-draw-on — a real
+     stutter fix. main.core-cleared needs the same immediate filter as
+     reduced-motion since a returning player can land in that state
+     without .play ever being added. */
   @media (prefers-reduced-motion: reduce) {
     #skull-art { filter: drop-shadow(0 0 9px var(--ember-glow)); }
   }
@@ -618,16 +414,10 @@
     #skull-art .ball.current { filter: drop-shadow(0 0 7px var(--ball-glow)); }
   }
 
-  /* "just solved it" celebration: replays the boot draw-on look on just one
-     ball, in green — added by celebrateClear() in console.js the moment a
-     node clears, never during boot render. Uses its own keyframe
-     (clear-draw) instead of reusing "draw": browsers don't reliably restart
-     an animation still using a name that already finished running on these
-     paths, so a distinct name sidesteps that. --cd is a plain per-path index
-     set right before this class is added (celebrateClear), not the boot
-     reveal's --d — reusing --d would stagger one ball's few paths across
-     most of the whole-skull sequence. .just-cleared is never removed after
-     — .ball.cleared path below already holds the same green end state. */
+  /* "just solved it" celebration: replays the draw-on look on one ball in
+     green, added by celebrateClear(). Uses its own keyframe (clear-draw,
+     not "draw") since browsers don't reliably restart an animation name
+     that already finished on these paths. */
   @media (prefers-reduced-motion: no-preference) {
     #skull-art .ball.just-cleared path {
       stroke: var(--cleared);
@@ -645,12 +435,7 @@
     100% { filter: drop-shadow(0 0 0 transparent); }
   }
 
-  /* draw-on: each path carries pathLength="1" and a per-path --d delay, so
-     one rule animates them all; held until the init gate adds .play. The
-     highest --d in the artwork is 2.29, so the whole reveal finishes around
-     2.29*1.25 + 1.63 = ~4.5s — the breathing-glow delay and the node-list
-     stagger's base delay are both anchored to that same ~4.5s so they wait
-     for the reveal to actually finish. */
+  /* Draw-on: each path carries pathLength="1" and a per-path --d delay; the whole reveal finishes around ~4.5s, which the breathing-glow and node-list stagger delays are both anchored to. */
   @media (prefers-reduced-motion: no-preference) {
     #skull-art path { stroke-dasharray: 1; stroke-dashoffset: 1; }
     main.play #skull-art path {
@@ -660,21 +445,12 @@
   }
   @keyframes draw { to { stroke-dashoffset: 0; } }
 
-  /* Endgame: the moment CORE clears, the whole skeleton turns green, same
-     as .ball.cleared per-node but scaled to the entire artwork. main.victory
-     (setSkullVictory() in console.js) is the static, always-on half:
-     !important because .ball.bonus.unlocked path (3 classes) would
-     otherwise out-specificity this 1-class rule — the deliberate "nothing
-     overrides this" case !important exists for. Added both on a live clear
-     and on boot restore, so it alone carries no animation (see
-     main.victory-play below for that). */
+  /* Endgame: the moment CORE clears, the whole skeleton turns green. The
+     static half (main.victory) needs !important since .ball.bonus.unlocked
+     (3 classes) would otherwise out-specificity this 1-class rule. */
   main.victory #skull-art path { stroke: var(--cleared) !important; }
 
-  /* Animated half — added only on a live clear, never on boot restore (see
-     setSkullVictory()'s replay param), so a returning player just sees the
-     finished green skull instantly. Reuses the draw-on technique above with
-     a fresh keyframe name (victory-draw, not draw) for the same restart
-     reason as .just-cleared's own comment further up. */
+  /* Animated half — only on a live clear, never boot restore, so a returning player sees the finished green skull instantly. */
   @media (prefers-reduced-motion: no-preference) {
     main.victory-play #skull-art path {
       stroke-dasharray: 1;
@@ -692,43 +468,22 @@
     animation: none;
     box-shadow: none;
   }
-  /* b1 separately carries its own static (non-pulsing) glow while
-     unlocked-but-unsolved (.node.bonus.unlocked below) — its status doesn't
-     change just because CORE did, so without this it'd glow indefinitely
-     after victory too. 4 classes beat that rule's 3 without !important. */
+  /* b1's static glow doesn't change just because CORE did, so without this it'd glow indefinitely after victory too. */
   main.victory .node.bonus.unlocked {
     box-shadow: none;
   }
-  /* Same "stop reading as alive once the run is won" reasoning as above, for
-     the periodic .map glitch burst — tie only, no !important needed since
-     main.play .map and main.victory .map share the same specificity shape,
-     so source order alone decides it. */
+  /* Same "stop reading as alive after victory" reasoning, for the periodic .map glitch burst. */
   main.victory .map,
   main.victory .map::after {
     animation: none;
   }
 
   /* ---------- endgame shutdown: reverse draw-on + closing transmission ---------- */
-  /* Begins once the whole-skull wave above has fully finished (the computed
-     setTimeout in setSkullVictory, console.js) — the wave finishes, THEN it
-     powers down, never overlapping. main.shutdown-play is added by JS at
-     that instant, alongside a fresh --rd ("reverse delay") on every path
-     (see playShutdown's own comment for the formula). Literal reverse of
-     the boot draw-on: same shape, driven by --rd instead of --d, animating
-     stroke-dashoffset 0->1 instead of 1->0, so paths that drew in last
-     retract first — a true mirror, not a fade.
-     !important for the same reason main.victory's stroke override needs it:
-     .ball.just-cleared path would otherwise keep running its own animation
-     on already-cleared balls instead of retracting with the rest.
-     `both` fill-mode + the explicit `from` are load-bearing, not style: the
-     moment this rule takes over, animation-name switches away from
-     whatever it was, discarding that animation's held "fully drawn" state.
-     With only `forwards` and no explicit 0%, a path would fall back to the
-     base rule's stroke-dashoffset:1 during its own delay — already undraw's
-     target value — so every path looked already-invisible before its own
-     retraction even started (one instant cut, not a stagger). `both` holds
-     the explicit `from` for the full delay instead, so each path only
-     retracts once its own --rd-based delay actually elapses. */
+  /* Begins once the whole-skull victory wave has fully finished (never
+     overlapping). Literal reverse of the boot draw-on, driven by --rd
+     instead of --d, so paths that drew in last retract first. `both`
+     fill-mode + explicit `from` are load-bearing — without them every path
+     would look already-invisible before its own delay even elapsed. */
   @media (prefers-reduced-motion: no-preference) {
     main.shutdown-play #skull-art path {
       animation: undraw 1.63s cubic-bezier(.4, 0, .2, 1) both !important;
@@ -740,10 +495,7 @@
     to { stroke-dashoffset: 1; }
   }
 
-  /* #nodes (label/hotspot layer) has no strokes to retract, so it just
-     fades, starting alongside the reverse-draw above so labels don't linger
-     over a vanished ball. Same for #briefing and .list-view (mobile) —
-     clearing them is what hands the ending text the full width of <main>. */
+  /* #nodes has no strokes to retract, so it just fades alongside the reverse-draw; same for #briefing/.list-view, which frees full width for the ending text. */
   main.shutdown #skull-art,
   main.shutdown #nodes,
   main.shutdown-play #nodes,
@@ -761,10 +513,7 @@
       transition: opacity 900ms ease;
     }
   }
-  /* .map-wrap's border-right separates the map column from #briefing's —
-     once both are gone it's a gray line separating nothing, so it fades
-     out too. transparent, not removed outright: width:1px stays put either
-     way, and color is the property that can transition smoothly. */
+  /* Fades to transparent rather than being removed, so width:1px stays put and color can transition smoothly. */
   main.shutdown .map-wrap,
   main.shutdown-play .map-wrap {
     border-right-color: transparent;
@@ -774,17 +523,10 @@
       transition: border-right-color 900ms ease;
     }
   }
-  /* main.shutdown alone (boot restore / reduced-motion live path, neither
-     of which has the per-path animation above to rely on) needs #skull-art
-     itself hidden directly — the live path gets there naturally once every
-     path has retracted to an invisible zero-length stroke, this is just
-     the equivalent instant end state for the other two. */
+  /* Boot restore / reduced-motion has no per-path animation to rely on, so #skull-art needs hiding directly as the equivalent instant end state. */
   main.shutdown #skull-art { opacity: 0; }
 
-  /* Spans the whole of <main> (a direct main child in console.html, not
-     nested in .map) so once everything above is gone it has the full width
-     to center in, not just .map-wrap's column. pointer-events:none — it's
-     a read-only closing message, nothing here is interactive. */
+  /* Spans all of <main> so it has the full width once everything above is gone, not just .map-wrap's column; read-only, so pointer-events:none. */
   .shutdown-panel {
     position: absolute;
     inset: 0;
@@ -809,9 +551,7 @@
     opacity: 0;
     transition: opacity 500ms ease;
   }
-  /* Restore/reduced-motion: settleShutdown() fills the text in instantly.
-     Live path fades in via .visible, added once the reverse-draw finishes —
-     right as the JS typewriter starts populating shutdown-message. */
+  /* Restore/reduced-motion fills the text in instantly; the live path fades in via .visible once the reverse-draw finishes. */
   main.shutdown .shutdown-text,
   .shutdown-text.visible {
     opacity: 1;
@@ -877,13 +617,7 @@
     );
   }
 
-  /* Decorative easter-egg hotspots (DECO_NODES in console.js) — sized/
-     positioned like .node but with none of its interactive tells: no hover
-     bracket, no focus outline, no pulse, no label, not even cursor:pointer
-     — hovering must feel identical to hovering blank artwork, or the
-     cursor gives the hotspot away before a click happens. Just an
-     invisible circle over a ring icon that otherwise blends into the rest
-     of the skull linework until .cleared/.just-cleared land on click. */
+  /* Decorative easter-egg hotspots — sized like .node but with none of its interactive tells, since even a cursor change would give the hotspot away. */
   .deco-node {
     position: absolute;
     width: clamp(36px, 7cqw, 56px);
@@ -892,12 +626,7 @@
     border-radius: 50%;
   }
 
-  /* Paired with the <circle class="deco-hit"> inside each #ball-d* group in
-     console.html — an SVG-native hit target that scales 1:1 with the
-     rendered icon, closing the gap where .deco-node's fixed-CSS-px div can
-     miss the artwork's actual spoke tips on a large render. fill:transparent
-     (not none) is load-bearing — `none` opts out of pointer events entirely
-     under visiblePainted, transparent stays hit-testable while invisible. */
+  /* An SVG-native hit target scaling 1:1 with the rendered icon. fill:transparent (not none) is load-bearing — `none` opts out of pointer events entirely. */
   .deco-hit {
     fill: transparent;
   }
@@ -1019,47 +748,15 @@
     flex-direction: column;
     gap: 16px;
     overflow-y: auto;
-    /* Found 2026-08-17 — the actual root cause behind the reported
-       skull-resize-plus-scrollbar bug, after two earlier attempts
-       (.map-wrap's container-type, then scrollbar-gutter) both missed it.
-       #briefing is a grid item of `main` (display:grid, see that rule's
-       own min-height:0). Grid/flex ITEMS default to `min-height: auto`,
-       which floors an item's height at its *content's own intrinsic
-       minimum size* — a classic, easy-to-miss trap: the container's own
-       min-height:0 (main's rule) does not propagate down to fix this on
-       its items, so #briefing was still refusing to shrink below
-       whatever height its content needed, overflow-y:auto or not (auto
-       only ever engages once a box actually *has* a bounded size smaller
-       than its content — with the item's own min-height flooring it at
-       the content's size first, that bounded state never occurs, so
-       nothing ever scrolls; the box just grows instead). Since #briefing
-       shares main's single implicit grid row with .map-wrap, and grid
-       items stretch to their row's height by default, that oversized
-       #briefing forced the *whole row* — including .map-wrap, which
-       .map's cqh-based sizing reads directly — to grow past viewport
-       height right along with it. Same cause, both symptoms at once:
-       the page-level scrollbar (main's height escapes the pinned
-       viewport bound) and the skull visibly growing (.map-wrap's height,
-       which .map sizes itself against, grows too). Explains "lower
-       resolutions" specifically, not just generally: the briefing
-       column's width is min(340px,32vw), so a glyph node's 26-symbol
-       reference key wraps into more rows the narrower that gets, pushing
-       #briefing's intrinsic minimum height higher exactly as resolution
-       drops — matching what was reported. min-height:0 here is what
-       actually lets #briefing shrink to the row's intended height and
-       hand any real overflow to its own scrollbar instead of the row (and
-       .map-wrap along with it) absorbing the difference. Still not
-       visually confirmed for the same reason as the last two attempts —
-       no browser in this sandbox — but this is the mechanism that
-       actually explains both reported symptoms together, where the
-       previous two fixes each only explained one plausible-sounding
-       partial story. */
+    /* The actual root cause of the skull-resize-plus-scrollbar bug: grid
+       items default to min-height:auto, flooring #briefing at its content's
+       intrinsic size regardless of main's own min-height:0. That oversized
+       #briefing then stretched the whole shared grid row (including
+       .map-wrap, which .map's cqh sizing reads from). This min-height:0
+       lets #briefing shrink and hand overflow to its own scrollbar instead. */
     min-height: 0;
   }
-  /* wrap rather than overflow — the narrow briefing column (min(340px,32vw))
-     plus a long status label ("Active — Awaiting Input") doesn't fit on one
-     line around tablet widths; wrapping drops the pill to its own line
-     instead of clipping off the panel's right edge */
+  /* wrap rather than overflow — a long status label doesn't fit on one line at tablet widths, so it drops to its own line instead of clipping. */
   .briefing-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .briefing-id {
     font-family: var(--font-mono);
@@ -1229,12 +926,7 @@
     flex-wrap: wrap;
     gap: 6px;
   }
-  /* Unstyled-button reset, then styled as a small bordered tile — same
-     bordered-tile language .audio-btn already uses elsewhere in this
-     file, so a glyph reads as "a control," not just decorative art. Also
-     applied to the non-clickable <span> variant (see buildGlyphIcon's own
-     comment) via `all: unset` so both tag types render identically apart
-     from the .static overrides just below. */
+  /* Unstyled-button reset, then styled as a bordered tile (same language as .audio-btn) so a glyph reads as a control, not decorative art. */
   .glyph {
     all: unset;
     box-sizing: border-box;
@@ -1251,25 +943,14 @@
     border-radius: 2px;
     cursor: pointer;
   }
-  /* A node's own encoded message (buildGlyphIcon's clickable:false path,
-     added 2026-08-17) — display-only, so no pointer cursor and no
-     hover/focus affordance implying it can be clicked; :not(.static) on
-     the rule below is what withholds that from these specifically. */
+  /* A node's own encoded message is display-only — no pointer cursor or hover/focus affordance implying it's clickable. */
   .glyph.static { cursor: default; }
   .glyph:not(.static):hover, .glyph:not(.static):focus-visible { border-color: var(--signal); }
   .glyph:focus-visible { outline: 1px solid var(--signal); outline-offset: 2px; }
-  /* Added 2026-08-19 in response to a real "clicking a glyph doesn't
-     register straight away" report. Two separate fixes for two separate
-     gaps, not one:
-     (1) :active is genuinely instant — handled entirely by the browser's
-     own input pipeline the moment a pointer goes down, zero JS/network
-     involved, so this covers the press itself with no latency at all.
-     (2) .pending (set by console.js's own click handler, cleared in its
-     `finally`) covers the gap :active can't: the real network round trip
-     to REVEAL_ENDPOINT between click and response, during which nothing
-     used to change on screen at all. A soft pulse, not a spinner or color
-     change that might read as an error/success state prematurely — this
-     only needs to say "heard you," not report an outcome yet. */
+  /* Two separate fixes for "clicking a glyph doesn't register instantly":
+     :active covers the press itself (zero-latency, browser-native), while
+     .pending covers the real network round trip after it, with a soft
+     pulse rather than a spinner or error/success color. */
   .glyph:not(.static):active { transform: scale(0.92); }
   @media (prefers-reduced-motion: no-preference) {
     .glyph.pending { animation: glyph-pending 0.6s ease-in-out infinite; }
@@ -1281,30 +962,13 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.55; }
   }
-  /* Revealed glyphs get the "solved" green rather than staying signal-red
-     — same color meaning --cleared already carries everywhere else in
-     this file (a done/known state), not a new one invented just for this.
-     Applies to .glyph-message's own glyphs — the actual encoded content —
-     since that's the thing green's "solved" meaning genuinely fits. */
+  /* Revealed glyphs get the "solved" green, same meaning --cleared carries everywhere else. */
   .glyph.revealed { border-color: var(--cleared); }
-  /* .glyph-key's own tiles override to --flame instead (added 2026-08-17,
-     at the user's explicit request): before this, revealing anything
-     turned both the reference key *and* the message glyphs the identical
-     green, so nothing distinguished "a letter you've looked up" from "part
-     of the actual secret you've decoded" — green-on-green. --flame already
-     carries an "active/current" meaning elsewhere in this file (the
-     current node's own dot/glow), which fits a reference lookup better
-     than "solved" does, and reads as a deliberate green+amber CRT duotone
-     rather than a color pulled in from outside the theme. Kept distinct
-     on purpose from --signal too, which this same element already uses
-     for hover/focus/error — three unambiguous meanings on one element
-     type, not two colors doing double duty. */
+  /* .glyph-key overrides to --flame ("active/current" elsewhere in this
+     file) so a reference lookup reads distinctly from the actual decoded
+     secret, instead of green-on-green. */
   .glyph-key .glyph.revealed { border-color: var(--flame); }
-  /* flashGlyphError() (console.js) — a failed/throttled reveal request.
-     Brief and self-clearing (the class comes off again on its own via a
-     timeout), so this reads as "try again," not a permanent broken state.
-     Reuses --signal, same "something needs attention" meaning the plain
-     hover/focus border already carries on this element. */
+  /* A failed/throttled reveal — brief and self-clearing, so this reads as "try again," not a permanent broken state. */
   .glyph.glyph-error { border-color: var(--signal); }
   .glyph-icon {
     width: 20px;
@@ -1313,10 +977,7 @@
   }
   .glyph.revealed .glyph-icon { color: var(--cleared); }
   .glyph-key .glyph.revealed .glyph-icon { color: var(--flame); } /* see .glyph-key .glyph.revealed's own comment above */
-  /* The raw shapes buildGlyphIcon()/glyphMarkup() emit (circle/rect/
-     polygon/line) carry no styling of their own — direct children of
-     .glyph-icon covers every shape type with one rule rather than needing
-     a class per element. */
+  /* One rule for every shape type buildGlyphIcon() emits, rather than a class per element. */
   .glyph-icon > * {
     fill: none;
     stroke: currentColor;
@@ -1324,10 +985,7 @@
     stroke-linecap: round;
     stroke-linejoin: round;
   }
-  /* Reserved height so revealing a letter doesn't reflow/resize the
-     button (and everything after it) by however tall that text is —
-     .glyph is a fixed-size tile either way, this just controls whether
-     the reserved space is visibly filled. */
+  /* Reserved height so revealing a letter doesn't reflow the button and everything after it. */
   .glyph-letter {
     height: 9px;
     font-family: var(--font-mono);
@@ -1342,18 +1000,9 @@
      group-gap does — space, not a visible mark. */
   .glyph-gap { width: 14px; flex: none; }
 
-  /* NODE_06's coordinate digits (buildGlyphDigit()/buildGlyphGrid()) —
-     same 5 base shapes glyphMarkup() draws for letters. Restyled
-     2026-08-19, at the user's explicit request, to match CORE's own
-     glyph-hex treatment (.glyph-hex-icon above) — fill + stroke together
-     and the same --ember/--ember-glow color, instead of the plain
-     phosphor fill this used before. Only the CSS changed here, not the
-     underlying markup: buildGlyphDigit() still calls glyphShapeMarkup()
-     directly (no ticks), so these 5 shapes read as "the same visual
-     family as CORE's dialect" without actually gaining tick marks —
-     there's no tick data in the SVG content for this rule to reveal even
-     though it draws a stroke now, since a 5x5 Polybius grid never needed
-     more than 5 distinct shapes to begin with. */
+  /* NODE_06's coordinate digits — same 5 base shapes glyphMarkup() draws
+     for letters, restyled to match CORE's glyph-hex fill+stroke treatment
+     (.glyph-hex-icon below) instead of the plain phosphor fill it used before. */
   .glyph-digit-icon {
     width: 16px;
     height: 16px;
@@ -1389,9 +1038,7 @@
     flex-wrap: wrap;
     gap: 6px 16px;
   }
-  /* Same "group gap reads as the word break" language .clock-word already
-     uses — a coordinate-grid message is the same shape of data (letters
-     grouped into words) as the clock cipher, just decoded differently. */
+  /* Same "group gap reads as the word break" language .clock-word already uses. */
   .glyph-grid-word {
     display: flex;
     gap: 8px;
@@ -1405,20 +1052,9 @@
     border-radius: 2px;
   }
 
-  /* CORE's own cipher dialect (buildGlyphHex()/buildGlyphHexCipher()),
-     added 2026-08-19 at the user's explicit request as CORE's own "flare"
-     — a genuinely different visual system from both of this project's
-     other two glyph treatments, not a reuse of either: .glyph-icon above
-     is OUTLINE + ticks (the 26-letter alphabet), .glyph-digit-icon is
-     FILL + no ticks (NODE_06). This is FILL + ticks together — the one
-     combination neither existing system uses — deliberately reading as
-     "everything else, synthesized," fitting CORE's role as the node that
-     absorbed every other signal. Same underlying shape/tick generator
-     (glyphMarkup()) as the 26-letter alphabet, index 0-15 instead of
-     0-25 — 16 symbols for one hex nibble each, not a new shape set to
-     design or maintain. --ember/--ember-glow specifically (not --signal
-     or --flame) to match CORE's own already-established map identity —
-     see #skull-art's ember drop-shadow and .node.glow's --pulse-glow. */
+  /* CORE's own cipher dialect — FILL + ticks together, the one combination
+     neither .glyph-icon (outline+ticks) nor .glyph-digit-icon (fill only)
+     uses, fitting CORE's role as the node that absorbed every other signal. */
   .glyph-hex-icon {
     width: 22px;
     height: 22px;
@@ -1455,10 +1091,7 @@
     flex-wrap: wrap;
     gap: 6px 10px;
   }
-  /* One box per source byte (two glyphs = high nibble, low nibble) — same
-     "group the pair visually" language .glyph-grid-pair already uses for
-     Polybius coordinates, so a byte reads as one unit instead of two
-     unrelated symbols sitting next to the next byte's first nibble. */
+  /* One box per source byte (high nibble, low nibble) so a byte reads as one unit, same language as .glyph-grid-pair. */
   .glyph-hex-byte {
     display: flex;
     gap: 3px;
@@ -1476,13 +1109,7 @@
     opacity: 0.7;
   }
 
-  /* Light-touch n4/n5 hints, unlocked via the 4 decorative fragments (see
-     renderBriefing's decoFound.length check) — same border-left treatment
-     as .briefing-note since it's structurally the same kind of aside, but
-     italic and a touch brighter (--steel, not --steel-dim) since this was
-     earned rather than just informational, worth actually noticing. Not
-     --flame: that color is already claimed for .current status states
-     elsewhere, reusing it here would misread as "this node is active". */
+  /* Light-touch n4/n5 hints unlocked via the deco fragments — same treatment as .briefing-note, but italic and brighter since this was earned. */
   .briefing-hint {
     margin-top: 10px;
     font-family: var(--font-mono);

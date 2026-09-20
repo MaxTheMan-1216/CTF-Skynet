@@ -779,12 +779,7 @@
     <div class="shutdown-text">
       <p class="shutdown-message" id="shutdown-message"></p>
       <p class="shutdown-flag"><span id="shutdown-flag-label"></span><span id="shutdown-flag-value"></span></p>
-      <!-- Endgame overlay spanning the whole of <main>, not just .map's — once
-       the briefing panel disappears alongside the skull, this has the full
-       width to center in. Last child of main so it paints on top by plain
-       DOM order (see .shutdown-panel in console.css). Hidden until main
-       carries .shutdown/.shutdown-play; text is filled in from
-       SKYNET_ENDING in console.js, not hardcoded here. -->
+      <!-- Endgame overlay spanning all of <main>; text is filled in from SKYNET_ENDING in console.js, not hardcoded here. -->
     </div>
   </div>
 </main>
@@ -793,41 +788,16 @@
 
 
 
-<!-- preload="none" (was "auto") on all four below, added 2026-08-19 in
-     response to a real "the live site feels laggy" report: these four
-     files totaled ~8.4MB being fetched eagerly on every console.html load
-     — TM-Intro.mp3 alone is 7.3MB — regardless of whether a given visit
-     ever clears a node, finds a deco secret, or reaches the ending.
-     Playback was already correctly gated behind real trigger events
-     (clearNode(), markDecoFound(), playShutdown()), not page load; only
-     the prefetch timing needed to change. .play() still fetches on
-     demand — same tradeoff as index.html's own gate-audio/access-audio,
-     see that comment for the full reasoning. -->
+<!-- preload="none" on all four below — these totaled ~8.4MB fetched eagerly on every load regardless of whether a visit ever triggers them. -->
 <audio id="theme-audio" src="audio/TM-Intro.mp3" loop preload="none"></audio>
 <audio id="cleared-audio" src="audio/Cleared.mp3" preload="none"></audio>
 <audio id="deco-audio" src="audio/EE.wav" preload="none"></audio>
-<!-- loop, not one-shot: its length has no fixed relationship to the
-     typewriter's — playShutdown() stops it explicitly once typing finishes. -->
+<!-- loop, not one-shot — playShutdown() stops it explicitly once typing finishes. -->
 <audio id="ending-typing-audio" src="audio/ending-typing.mp3" loop preload="none"></audio>
 
-<!-- Turnstile, added 2026-08-17 — the one deliberate exception to this
-     project's otherwise fully self-contained asset story (fonts embedded
-     as base64 in theme.css specifically to avoid any external request; see
-     that file's own note). There's no way around it here: the whole point
-     of Turnstile is proving a real browser executed Cloudflare's own
-     challenge script, so it can't be vendored/self-hosted without
-     defeating its own purpose.
-     Deliberately NOT async/defer — tried that first, and Turnstile's own
-     SDK throws explicitly: "Remove async/defer from the Turnstile api.js
-     script tag before using turnstile.ready()" (caught by actually running
-     this in a real browser, not by reading the docs and assuming). Placed
-     at the end of body, right before console.js, same position a
-     deferred script would occupy anyway — most of defer's benefit already
-     comes from being here rather than in <head>, so the one script tag
-     that has to load synchronously costs little. console.js's own
-     acquireSessionToken() (see CHECK_ENDPOINT's own comment) still fails
-     soft with `typeof turnstile === "undefined"` for the remaining real
-     failure case this doesn't cover — the script failing to load at all
-     (network error, ad-blocker). -->
+<!-- Turnstile — the one deliberate exception to this project's otherwise
+     self-contained asset story, since proving a real browser executed
+     Cloudflare's own challenge script can't be vendored. Deliberately NOT
+     async/defer — Turnstile's SDK throws if combined with turnstile.ready(). -->
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
 <script src="scripts/console.js"></script>

@@ -1,58 +1,25 @@
 #!/usr/bin/env python3
-# Generates audio/Node02_Spectrogram.wav — NODE_02's cipher payload. This
-# is a standalone dev-time tool, not part of the `npm run build` pipeline
-# (build/strip-comments.mjs never runs this; it just copies whatever's
-# already in audio/ verbatim, same as any other clip there). Run this by
-# hand only when NODE_02's answer changes and the asset needs regenerating
-# — same "compute it, verify it, don't hand-edit" discipline CLAUDE.md
-# already asks for on every other cipher value in this project, just for
-# a binary asset instead of a hash or a glyph-index array.
+# Generates audio/Node02_Spectrogram.wav (NODE_02's cipher payload). A
+# standalone dev-time tool, not part of `npm run build` — run by hand only
+# when NODE_02's answer changes, then verify before trusting the output.
 #
-# The technique: render text to a bitmap, then synthesize an audio signal
-# where each bitmap row is one fixed frequency and each column is one
-# time-slot — a "lit" pixel becomes a Hann-windowed tone burst at that
-# row's frequency during that column's time window. Recomputing the
-# spectrogram of the resulting WAV reconstructs the original bitmap as
-# legible text, visible only by actually looking at the spectrogram (a
-# tool like Audacity, or sox, or this same script's own verification
-# step) — not by listening to it or feeding it to a speech/audio model,
-# which is what made the original Morse-in-audio version of this node
-# trivial for exactly that kind of tool.
+# Technique: render text to a bitmap, then synthesize audio where each row
+# is a fixed frequency and each column a time-slot, so a "lit" pixel becomes
+# a Hann-windowed tone burst — the spectrogram of the resulting WAV
+# reconstructs the bitmap as legible text, visible only by looking at the
+# spectrogram, not by listening or feeding it to a speech/audio model.
 #
-# What actually gets encoded is NODE_02's real answer, Atbash-shifted
-# (see TEXT below) — never the plaintext answer directly. Storing the
-# plaintext directly in the spectrogram would defeat the puzzle entirely:
-# unlike this repo's own JS source, a shipped WAV file is fully public and
-# entirely exposed to anyone who thinks to inspect it (that's the whole
-# point — the player is *supposed* to be able to extract this), so
-# whatever the spectrogram shows has to still require solving a real
-# cipher, the same "glyph layer sits on top of a real transformation"
-# principle every other converted node in this project follows.
+# TEXT below is NODE_02's real answer, Atbash-shifted — never plaintext,
+# since the WAV ships fully public and is meant to be extracted, just not
+# trivially.
 #
 # Needs numpy/scipy/matplotlib/Pillow (not in this repo's own
-# package.json — install into a venv or with --break-system-packages
-# before running, this script isn't wired into any existing dependency
-# list). Round-trip-verify the Atbash step and visually inspect
-# verification.png before trusting a regenerated file — don't just assume
-# the pipeline worked.
+# package.json — install separately before running).
 #
-# IMPORTANT, added 2026-08-17 — regenerating the WAV here is no longer the
-# whole job. The live site doesn't serve audio/Node02_Spectrogram.wav
-# directly anymore (it moved off a plain public static path — see
-# NODE_AUDIO's own comment in src/index.js and the cipher.key note on n2
-# in scripts/console.js); what actually ships is a base64-embedded COPY of
-# those bytes, NODE_AUDIO.n2 in src/index.js, hand-committed the same way
-# ANSWER_HASHES/GLYPH_CIPHERTEXTS are. Running this script only updates the
-# audio/ file — the master copy to re-derive that constant from — it does
-# NOT touch src/index.js. Forgetting the second step means the file on
-# disk and what the Worker actually serves silently disagree. This script
-# now also writes build/node02_audio.b64 (gitignored scratch output, same
-# as the verification PNG) with the fresh base64 for exactly that reason:
-# after confirming the verification PNG looks right, paste that file's
-# contents into NODE_AUDIO.n2 in src/index.js, then round-trip-verify the
-# same way the original embed was verified — decode the new constant back
-# and diff it byte-for-byte against audio/Node02_Spectrogram.wav — before
-# trusting it, don't just assume the copy-paste went cleanly.
+# IMPORTANT: regenerating the WAV here isn't the whole job. The live site
+# serves a base64 copy of these bytes from NODE_AUDIO.n2 in src/index.js,
+# not this file directly — after verifying the output, paste
+# build/node02_audio.b64 into that constant and round-trip-verify it.
 
 import base64
 import numpy as np
@@ -64,22 +31,15 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# Atbash-shifted ciphertext of "COME WITH ME IF YOU WANT TO LIVE" — verify
-# this independently (atbash is its own inverse) before trusting it if
-# NODE_02's answer ever changes:
-#
-#   def atbash(s):
-#       return "".join(
-#           chr(ord("A") + (25 - (ord(c) - ord("A")))) if c.isalpha() else c
-#           for c in s.upper()
-#       )
+# Atbash-shifted ciphertext of "COME WITH ME IF YOU WANT TO LIVE" — atbash
+# is its own inverse, so re-shifting this should recover the plaintext.
 TEXT = "XLNV DRGS NV RU BLF DZMG GL OREV"
 
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
 FONT_SIZE = 16
 OUT_WAV = "audio/Node02_Spectrogram.wav"
-OUT_VERIFICATION_PNG = "build/node02_spectrogram_verification.png"  # gitignored scratch output, not shipped
-OUT_AUDIO_B64 = "build/node02_audio.b64"  # gitignored scratch output — paste into NODE_AUDIO.n2 in src/index.js, see this file's own top comment
+OUT_VERIFICATION_PNG = "build/node02_spectrogram_verification.png"  # gitignored scratch output
+OUT_AUDIO_B64 = "build/node02_audio.b64"  # gitignored — paste into NODE_AUDIO.n2 in src/index.js
 
 SR = 22050  # sample rate
 DT = 0.045  # seconds per bitmap column
@@ -104,7 +64,7 @@ def synthesize(bitmap: np.ndarray) -> np.ndarray:
     n_samples = int(duration * SR)
     audio = np.zeros(n_samples)
     t_col = np.arange(int(DT * SR)) / SR
-    window = np.hanning(len(t_col))  # avoids onset/offset clicks that would smear energy across frequencies
+    window = np.hanning(len(t_col))  # avoids onset/offset clicks that smear energy across frequencies
 
     for r in range(rows):
         freq = FREQ_MIN + (rows - 1 - r) * FREQ_STEP  # row 0 (top of image) -> highest frequency
@@ -131,9 +91,8 @@ def main():
     wavfile.write(OUT_WAV, SR, (audio * 32767).astype(np.int16))
     print(f"wrote {OUT_WAV}, duration={len(audio) / SR:.2f}s")
 
-    # Verify by recomputing the spectrogram from the file just written —
-    # not from the in-memory signal — so this actually checks what got
-    # saved to disk, not just what was generated in memory.
+    # Verify against the file just written, not the in-memory signal, so
+    # this checks what actually got saved to disk.
     sr_check, audio_check = wavfile.read(OUT_WAV)
     f, t, Sxx = signal.spectrogram(audio_check.astype(np.float64), fs=sr_check, nperseg=1024, noverlap=900)
     Sxx_db = 10 * np.log10(Sxx + 1e-12)
@@ -150,16 +109,13 @@ def main():
     plt.savefig(OUT_VERIFICATION_PNG, dpi=130)
     print(f"wrote {OUT_VERIFICATION_PNG} — inspect it before trusting the regenerated WAV")
 
-    # Encoded from the file on disk (opened fresh below), not the in-memory
-    # `audio` array — same "verify what actually got saved" reasoning as
-    # the spectrogram re-check just above, and the only way this can catch
-    # wavfile.write applying header/formatting this script didn't itself
-    # produce in memory.
+    # Encoded from disk, not the in-memory array, for the same reason as
+    # the spectrogram re-check above.
     with open(OUT_WAV, "rb") as wav_file:
         b64 = base64.b64encode(wav_file.read()).decode("ascii")
     with open(OUT_AUDIO_B64, "w") as b64_file:
         b64_file.write(b64)
-    print(f"wrote {OUT_AUDIO_B64} ({len(b64)} chars) — paste into NODE_AUDIO.n2 in src/index.js, then round-trip-verify (decode it back, diff against {OUT_WAV}) before trusting it")
+    print(f"wrote {OUT_AUDIO_B64} ({len(b64)} chars) — paste into NODE_AUDIO.n2 in src/index.js, then round-trip-verify before trusting it")
 
 
 if __name__ == "__main__":

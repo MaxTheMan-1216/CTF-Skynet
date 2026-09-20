@@ -3,45 +3,12 @@
 <link rel="stylesheet" href="styles/theme.css">
 <link rel="stylesheet" href="styles/gate.css">
 
-<!-- Hidden access-phrase QR code, added 2026-08-18, made the sole discovery
-     channel 2026-08-19 at the user's explicit request (removed a sibling
-     letterform-SVG hint that used to sit here too — see git history if
-     that mechanism is ever wanted again; the red herring comment near the
-     bottom of this file is a separate, untouched decoy, unrelated to this).
-     Camouflaged near-invisibly the same way the console's own glyph
-     ciphers hide their mapping — small size, achromatic delta over --void
-     (see gate.css) — positioned bottom-left. A player who reveals it
-     (brightness/contrast boost, live via devtools or on a screenshot)
-     scans the resulting QR instead of reading text directly.
-
-     Deliberately EMPTY here — a QR module grid has no "needs rendering to
-     mean anything" gap the way traced letterform paths would: the
-     dark/light pattern IS the fully-decoded payload the instant it's
-     read, no visual recognition required. Shipping that grid as static
-     markup in this file would hand the phrase to any QR-decoding script
-     pointed at the source, no color trick or rendering needed at all —
-     strictly worse than the plaintext ACCESS_PHRASE this project already
-     moved off of once (see src/index.js's GATE_ANSWER_HASH comment). So
-     the module grid lives only server-side; gate.js fetches it from
-     POST /gate-qr and builds the SVG at runtime, same "can't be extracted
-     for free by reading source" principle as every other revealed-not-
-     shipped asset in this project (glyph alphabet, node ciphers, deco
-     fragments, node audio) — though see that same file's own comment on
-     the real, narrower gap this still leaves: the raw module data itself
-     is only rate-limited, not session-gated, same tier as /check-gate.
-
-     gate.js's own comment covers a real, non-obvious bug worth knowing if
-     this is ever touched again: a QR decoder needs standard polarity
-     (dark modules = low reflectance), but this page's background is
-     already near the darkest a pixel can be, so the near-invisible signal
-     can only ever render BRIGHTER than background — meaning the light
-     modules and the quiet zone are what get the near-invisible fill here,
-     not the dark modules, which is inverted from what "draw the dark
-     pixels" would naturally suggest. Getting that backwards produces an
-     image that looks like a valid QR and fooled a lenient decoder (jsQR)
-     in testing, but failed every real-world scanner (verified against
-     zbar, the library many actually use) at any color delta up to +20 —
-     it wasn't a contrast problem at all. -->
+<!-- Hidden access-phrase QR code, the sole discovery channel — camouflaged
+     near-invisibly (small size, achromatic delta over --void, see
+     gate.css). Deliberately EMPTY here: gate.js fetches the module grid
+     from POST /gate-qr and builds the SVG at runtime, since a QR grid is
+     itself the fully-decoded payload and shipping it as static markup
+     would hand out the phrase for free. -->
 <div class="hidden-signal-qr" aria-hidden="true"></div>
 
 <header>
@@ -75,20 +42,9 @@
 <!-- cyberdyne internal QA — backup auth string, rotated per security policy
 ahead of the audit, do not hardcode in plaintext: GUVF BAR VF ABG ERNY
 RVGURE -->
-<!-- preload="none" (was "auto"), added 2026-08-19 in response to a real
-     "the live site feels laggy" report: Landing-Intro.mp3 is 8.8MB, and
-     preload="auto" was telling every visitor's browser to fetch the whole
-     file immediately on page load, whether or not they ever click past
-     the boot prompt. Playback was already correctly gated behind the
-     first click/keypress (browser autoplay policy, see beginBoot() in
-     gate.js) — only the PREFETCH timing needed to change, not when it's
-     allowed to play. .play() still fetches on demand once actually
-     called; the tradeoff is a small one-time buffering delay the first
-     time audio starts, in exchange for not shipping ~8.8MB to every
-     visitor who never interacts at all. access_granted.mp3 is tiny
-     (31KB) and not the bottleneck, but changed too for consistency —
-     it's also not needed until a correct submission, an event that may
-     never happen for a given visit. -->
+<!-- preload="none" — Landing-Intro.mp3 is 8.8MB; preload="auto" fetched
+     the whole file on every page load regardless of whether the visitor
+     ever clicked past the boot prompt. -->
 <audio id="gate-audio" src="audio/Landing-Intro.mp3" loop preload="none"></audio>
 <audio id="access-audio" src="audio/access_granted.mp3" preload="none"></audio>
 

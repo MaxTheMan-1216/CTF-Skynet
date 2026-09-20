@@ -1,37 +1,10 @@
   html, body { height: 100%; }
 
-  /* ---------- hidden access-phrase QR code — see its own comment in
-     index.html for the mechanism/reasoning; this is just the color/size/
-     position half of it. Sole discovery channel for the gate phrase as of
-     2026-08-19 (a sibling letterform-SVG hint used to live here too — see
-     git history if that's ever wanted back). Positioned bottom-left,
-     mirroring header's own top-right corner clamp values for visual
-     symmetry with the rest of this page's chrome, not a coincidence.
-     Fill is a +1 achromatic delta over --void (rgb(8,9,10)) — same ratio
-     between channels as the background itself, just very slightly
-     brighter, not a distinctly colored patch; small enough to be
-     genuinely indiscernible at normal viewing while still surviving a
-     real screenshot -> JPEG -> boost recovery pass (verified). Two real
-     fixes made 2026-08-19 after a real scan attempt on the first version
-     came back unreadable, verified with an actual production QR decoder
-     (zbar — the library many real scanner apps are built on; jsQR alone
-     had been giving false confidence, see gate.js's own comment on why):
-     (1) blur was actively counterproductive here, unlike on the letterform
-     hint — a QR decoder locates modules by their sharp edges, and even a
-     small blur smears exactly the boundary information it depends on, on
-     top of an already-tiny color delta. Dropped entirely for this element.
-     (2) sizing: gate.js's own QUIET_ZONE padding (4 modules each side, see
-     its comment) grew the rendered grid from 21 to 29 units without this
-     rule's width changing, which would have shrunk each module's actual
-     on-screen pixels — bumped these clamp values by the same ~1.4x the
-     grid grew by, so real module pixel density stays at least what it
-     was, not less, despite the added margin.
-     A THIRD suspect — fill delta being too small — turned out to be a red
-     herring: +1 through +20 all failed identically against zbar until a
-     real polarity bug (see gate.js) was found and fixed, at which point
-     even +1 decoded reliably through a full JPEG round-trip. Don't
-     re-introduce a bigger delta here assuming it buys scan reliability;
-     it was never the actual variable. */
+  /* ---------- hidden access-phrase QR code (sole discovery channel) ----------
+     Color/size/position half of the mechanism in gate.js/index.html. Fill
+     is a +1 achromatic delta over --void, genuinely indiscernible at normal
+     viewing but survives a screenshot->JPEG->boost recovery pass. No blur —
+     a QR decoder needs sharp module edges. */
   .hidden-signal-qr {
     position: fixed;
     left: clamp(16px, 3vw, 28px);
@@ -46,9 +19,7 @@
   }
 
   /* ---------- audio toggle: same control as console.html's HUD stat, pinned
-     top-right. Held at opacity:0 and revealed on the same fade-up schedule
-     as .gate below rather than visible pre-boot — audio can't play before
-     the first interaction anyway (browser autoplay policy). */
+     top-right, held at opacity:0 until the same fade-up as .gate below. */
   header {
     position: fixed;
     top: clamp(16px, 3vw, 28px);
@@ -75,19 +46,9 @@
   .hud-audio:focus-visible { outline: 1px solid var(--signal); outline-offset: 4px; }
 
   .gate-screen {
-    /* position:relative added 2026-08-17 — still load-bearing for the
-       hidden QR code above (.hidden-signal-qr), which is position:fixed
-       with no explicit z-index, same as the letterform hint this used to
-       protect before it was removed. Zero layout/visual effect on its own
-       (no offset set) — its only job is bringing main into the same
-       "positioned, z-index:auto" paint layer the hidden element uses, so
-       DOM order (that element comes first) reliably decides paint order
-       between them. Without this, `html, body` both having a background
-       (per theme.css) means body's background doesn't promote to the
-       canvas, so an unpositioned hidden element can end up painted over
-       by body's own background depending on paint-order specifics — a
-       real bug hit once already on the letterform hint. Don't remove this
-       thinking it's dead weight from a since-deleted element. */
+    /* position:relative has zero visual effect alone but is load-bearing:
+       it keeps .hidden-signal-qr (position:fixed) from being painted over
+       by body's own background — a real bug hit once before. Don't remove it. */
     position: relative;
     min-height: 100vh;
     display: flex;
@@ -98,14 +59,8 @@
     text-align: center;
   }
 
-  /* Old-CRT signal hiccup: a jagged ~250ms tear burst near the start of every
-     10.6s loop, then flat for the rest. The first burst is delayed a full
-     10.6s so it doesn't collide with the emblem/wordmark/caption/gate reveal
-     (finishes ~2.3s in); later cycles repeat at the normal period. Two parts
-     read as "glitch": .gate-screen snaps position/contrast in hard steps()
-     and grows a red/phosphor ghost double-image via drop-shadow (chromatic
-     aberration in this theme's own palette, not an unrelated color); a fixed
-     ::after sweeps a bright band top-to-bottom, like lost vertical hold. */
+  /* Old-CRT signal hiccup: a jagged ~250ms tear burst every 10.6s loop,
+     delayed initially so it doesn't collide with the boot reveal. */
   @media (prefers-reduced-motion: no-preference) {
     .gate-screen.play { animation: glitch 10.6s steps(1, jump-end) 10.6s infinite; }
     .gate-screen.play::after { animation: glitch-roll 10.6s steps(1, jump-end) 10.6s infinite; }
