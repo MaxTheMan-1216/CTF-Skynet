@@ -37,6 +37,12 @@ const KEEP_HTML_COMMENTS = [
   "qa override still wired in from the last pentest round",
   "backup transmission — real flag mirror",
   "targeting log dump, recovered fragment",
+  "double as a dev bypass",
+  "mirrored check at /check-gate-legacy",
+  "data-total-real attribute",
+  "TklDRSBUUlkgQlVUIE5P",
+  "leftover SKYNET_MASTER_KEY env",
+  "X-Debug-Skip-Verify header",
 ];
 
 function stripHtmlComments(html) {

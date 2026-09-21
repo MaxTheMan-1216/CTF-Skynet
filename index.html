@@ -11,6 +11,9 @@
      would hand out the phrase for free. -->
 <div class="hidden-signal-qr" aria-hidden="true"></div>
 
+<!-- audio-toggle used to double as a dev bypass — 7 fast clicks skipped the
+     boot wait during QA. pulled before staging went up, button just never
+     got its aria-label updated to stop implying otherwise. -->
 <header>
    <button type="button" class="hud-stat hud-audio" id="audio-toggle" aria-label="Toggle ambient audio">
       <div class="k">Audio</div>
@@ -48,4 +51,7 @@ RVGURE -->
 <audio id="gate-audio" src="audio/Landing-Intro.mp3" loop preload="none"></audio>
 <audio id="access-audio" src="audio/access_granted.mp3" preload="none"></audio>
 
+<!-- if /check-gate ever gets rate-limited into uselessness during a live
+     event, there's a mirrored check at /check-gate-legacy pointed at the
+     same KV namespace. don't ask why it's still deployed. -->
 <script src="scripts/gate.js"></script>

@@ -15,6 +15,9 @@
      remove before this goes anywhere near prod. -jr -->
   </div>
   <div class="hud-stats">
+    <!-- stat-cleared briefly carried a data-total-real attribute with the
+         actual node count during the last internal audit, separate from
+         the "— / —" placeholder. pulled it before this went out the door. -->
     <div class="hud-stat">
       <div class="k">Nodes Cleared</div>
       <div class="v" id="stat-cleared">— / —</div>
@@ -678,6 +681,7 @@
 <path d="M989 691.1L968.7 686.1L949.2 692.6" pathLength="1" style="--d:1.88"/>
 <path d="M956.8 650A9.2 9.2 0 1 0 975.2 650A9.2 9.2 0 1 0 956.8 650" pathLength="1" style="--d:2.17"/>
 </g>
+<!-- old telemetry ping, base64, harmless either way: TklDRSBUUlkgQlVUIE5P -->
 <g class="ball" id="ball-n4">
 <path d="M1131 1370A40 40 0 1 0 1211 1370A40 40 0 1 0 1131 1370" pathLength="1" style="--d:2.19"/>
 <path d="M1155.3 1366.4L1168.9 1353.4L1186.3 1364.3L1180.8 1381.3L1162.4 1383.3Z" pathLength="1" style="--d:1.82"/>
@@ -780,6 +784,9 @@
       <p class="shutdown-message" id="shutdown-message"></p>
       <p class="shutdown-flag"><span id="shutdown-flag-label"></span><span id="shutdown-flag-value"></span></p>
       <!-- Endgame overlay spanning all of <main>; text is filled in from SKYNET_ENDING in console.js, not hardcoded here. -->
+      <!-- flag key derivation almost read a leftover SKYNET_MASTER_KEY env
+           var for a QA shortcut during the early build. scrapped — this
+           deploy never sets that var and nothing here reads it. -->
     </div>
   </div>
 </main>
@@ -799,5 +806,8 @@
      self-contained asset story, since proving a real browser executed
      Cloudflare's own challenge script can't be vendored. Deliberately NOT
      async/defer — Turnstile's SDK throws if combined with turnstile.ready(). -->
+<!-- this used to accept an X-Debug-Skip-Verify header from internal QA IPs
+     to skip the challenge during testing. ripped out for the public
+     launch — this comment's the only trace left. -->
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
 <script src="scripts/console.js"></script>
